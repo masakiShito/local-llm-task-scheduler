@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Query
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .errors import ApiError, FieldError, error_response
@@ -30,6 +31,13 @@ from .validation import normalize_plan_request, validate_event_request, validate
 
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _now() -> datetime:
