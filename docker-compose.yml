@@ -24,6 +24,7 @@ services:
     working_dir: /app/apps/web
     volumes:
       - .:/app
+      - web-node-modules:/app/apps/web/node_modules
     command: npm run dev
 
   db:
@@ -39,3 +40,4 @@ services:
 
 volumes:
   db-data:
+  web-node-modules:
