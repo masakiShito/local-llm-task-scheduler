@@ -4,7 +4,7 @@ WORKDIR /app/apps/web
 
 COPY apps/web/package.json ./
 COPY apps/web/package-lock.json ./
-RUN npm ci
+RUN npm install
 
 COPY apps/web ./
 
