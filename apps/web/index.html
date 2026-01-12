@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task Scheduler UI</title>
+    <link rel="stylesheet" href="./styles/base.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="app-sidebar">
+        <h2>Scheduler</h2>
+        <nav>
+          <a class="nav-item is-active" href="#">📋 タスク</a>
+          <a class="nav-item" href="#">📌 固定予定</a>
+          <a class="nav-item" href="#">🗓️ 計画</a>
+        </nav>
+      </aside>
+      <div>
+        <header class="app-header">
+          <div>
+            <strong>今日のタスク</strong>
+            <div class="badge badge-accent">提案モード</div>
+          </div>
+          <div>
+            <button class="button button-secondary">フィルタ</button>
+            <button class="button button-primary">タスク作成</button>
+          </div>
+        </header>
+        <main class="main-content">
+          <section class="section-card">
+            <h3>優先タスク</h3>
+            <p>今日の空き時間に合わせて、次に着手すべきタスクを表示します。</p>
+            <div class="section-card" style="margin-top: 24px;">
+              <h4>仕様書レビュー</h4>
+              <p>締切: 明日 12:00 ・工数: 2h</p>
+              <span class="badge badge-accent">High</span>
+            </div>
+            <div class="section-card" style="margin-top: 16px;">
+              <h4>UI の最終調整</h4>
+              <p>締切: 明後日 18:00 ・工数: 1h</p>
+              <span class="badge">Medium</span>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
