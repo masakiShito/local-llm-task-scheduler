@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql://scheduler:scheduler@db:5432/scheduler
+    depends_on:
+      - db
+    command: uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+    working_dir: /app/apps/web
+    volumes:
+      - .:/app
+      - web-node-modules:/app/apps/web/node_modules
+    command: npm run dev
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=scheduler
+      - POSTGRES_PASSWORD=scheduler
+      - POSTGRES_DB=scheduler
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+  web-node-modules:
