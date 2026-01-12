@@ -707,8 +707,22 @@ export default function Home() {
         method: "POST",
         body: JSON.stringify(eventForm),
       });
+
+      // 作成した予定の日付を抽出
+      const eventDate = eventForm.start_at.slice(0, 10);
+
+      // その日付のイベント一覧を取得
+      const payload = await fetchJson<{ data: EventItem[] }>(
+        `/events?date=${eventDate}`
+      );
+      setEvents(payload.data);
+
+      // planForm.date も更新（作成した予定の日付に切り替え）
+      if (eventDate !== planForm.date) {
+        setPlanForm(prev => ({ ...prev, date: eventDate }));
+      }
+
       setEventForm({ title: "", start_at: "", end_at: "", description: "" });
-      await refreshEvents();
     } catch (err) {
       setError(err instanceof Error ? err.message : "予定の作成に失敗しました。");
     } finally {
