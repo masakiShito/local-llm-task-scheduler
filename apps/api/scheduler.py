@@ -21,15 +21,31 @@ def _subtract_events(
 ) -> list[tuple[datetime, datetime]]:
     remaining = slots
     for event in events:
+        # Normalize event times to match the timezone of slots
+        if slots and slots[0][0].tzinfo is not None:
+            tzinfo = slots[0][0].tzinfo
+            if event.start_at.tzinfo is None:
+                # If naive, assume it's in the target timezone
+                event_start = event.start_at.replace(tzinfo=tzinfo)
+                event_end = event.end_at.replace(tzinfo=tzinfo)
+            else:
+                # If aware, convert to target timezone
+                event_start = event.start_at.astimezone(tzinfo)
+                event_end = event.end_at.astimezone(tzinfo)
+        else:
+            # If slots are naive, use event times as-is
+            event_start = event.start_at
+            event_end = event.end_at
+
         updated: list[tuple[datetime, datetime]] = []
         for slot_start, slot_end in remaining:
-            if event.end_at <= slot_start or event.start_at >= slot_end:
+            if event_end <= slot_start or event_start >= slot_end:
                 updated.append((slot_start, slot_end))
                 continue
-            if event.start_at > slot_start:
-                updated.append((slot_start, event.start_at))
-            if event.end_at < slot_end:
-                updated.append((event.end_at, slot_end))
+            if event_start > slot_start:
+                updated.append((slot_start, event_start))
+            if event_end < slot_end:
+                updated.append((event_end, slot_end))
         remaining = updated
     return remaining
 
