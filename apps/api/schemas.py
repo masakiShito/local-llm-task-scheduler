@@ -145,3 +145,35 @@ class OverflowItem(BaseModel):
 class WarningItem(BaseModel):
     message_id: str
     message: str
+
+
+class RecurringScheduleBase(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+    start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    end_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    days_of_week: list[int] = Field(min_length=1, max_length=7)
+    valid_from: date | None = None
+    valid_to: date | None = None
+
+
+class RecurringScheduleCreateRequest(RecurringScheduleBase):
+    pass
+
+
+class RecurringScheduleUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+    start_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    end_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    days_of_week: list[int] | None = Field(default=None, min_length=1, max_length=7)
+    valid_from: date | None = None
+    valid_to: date | None = None
+
+
+class RecurringSchedule(RecurringScheduleBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    recurring_schedule_id: str
+    created_at: datetime
+    updated_at: datetime

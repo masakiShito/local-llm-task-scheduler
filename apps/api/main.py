@@ -20,6 +20,9 @@ from .schemas import (
     PlanGenerateRequest,
     PlanListItem,
     PlanParams,
+    RecurringSchedule,
+    RecurringScheduleCreateRequest,
+    RecurringScheduleUpdateRequest,
     Task,
     TaskCreateRequest,
     TaskUpdateRequest,
@@ -27,7 +30,12 @@ from .schemas import (
     WorkingHour,
 )
 from .storage import STORE
-from .validation import normalize_plan_request, validate_event_request, validate_task_request
+from .validation import (
+    normalize_plan_request,
+    validate_event_request,
+    validate_recurring_schedule_request,
+    validate_task_request,
+)
 
 
 app = FastAPI()
@@ -42,6 +50,48 @@ app.add_middleware(
 
 def _now() -> datetime:
     return datetime.now(tz=ZoneInfo("Asia/Tokyo"))
+
+
+def _generate_events_from_recurring_schedules(
+    target_date: date,
+    timezone: str,
+    recurring_schedules: list[RecurringSchedule],
+) -> list[Event]:
+    generated_events = []
+    tzinfo = ZoneInfo(timezone)
+    day_of_week = target_date.weekday()  # 0=Monday, 6=Sunday
+
+    for schedule in recurring_schedules:
+        # Check if this day of week matches
+        if day_of_week not in schedule.days_of_week:
+            continue
+
+        # Check if within valid date range
+        if schedule.valid_from and target_date < schedule.valid_from:
+            continue
+        if schedule.valid_to and target_date > schedule.valid_to:
+            continue
+
+        # Parse time strings
+        start_parts = schedule.start_time.split(":")
+        end_parts = schedule.end_time.split(":")
+        start_time = datetime.strptime(schedule.start_time, "%H:%M").time()
+        end_time = datetime.strptime(schedule.end_time, "%H:%M").time()
+
+        # Create event
+        event = Event(
+            event_id=f"recurring-{schedule.recurring_schedule_id}-{target_date}",
+            title=schedule.title,
+            description=schedule.description,
+            start_at=datetime.combine(target_date, start_time, tzinfo=tzinfo),
+            end_at=datetime.combine(target_date, end_time, tzinfo=tzinfo),
+            locked=True,
+            created_at=schedule.created_at,
+            updated_at=schedule.updated_at,
+        )
+        generated_events.append(event)
+
+    return generated_events
 
 
 @app.exception_handler(ApiError)
@@ -184,6 +234,16 @@ def list_events(date: date = Query(...)) -> dict:
     for event in STORE.events.values():
         if event.start_at.astimezone(tzinfo).date() == date:
             events.append(event)
+
+    # Add events from recurring schedules
+    recurring_schedules = list(STORE.recurring_schedules.values())
+    generated_events = _generate_events_from_recurring_schedules(
+        date,
+        "Asia/Tokyo",
+        recurring_schedules,
+    )
+    events.extend(generated_events)
+
     return {"data": events, "meta": {}}
 
 
@@ -242,6 +302,56 @@ def delete_event(event_id: str) -> dict:
     if not event:
         raise ApiError(status_code=404, message_id="E-0404", message="対象データが存在しません")
     return {"data": {"event_id": event_id}, "meta": {"message_id": "I-0103"}}
+
+
+@app.get("/recurring-schedules")
+def list_recurring_schedules() -> dict:
+    schedules = list(STORE.recurring_schedules.values())
+    return {"data": schedules, "meta": {}}
+
+
+@app.post("/recurring-schedules", status_code=201)
+def create_recurring_schedule(request: RecurringScheduleCreateRequest) -> dict:
+    validate_recurring_schedule_request(request)
+    recurring_schedule_id = str(uuid4())
+    now = _now()
+    schedule = RecurringSchedule(
+        recurring_schedule_id=recurring_schedule_id,
+        created_at=now,
+        updated_at=now,
+        **request.model_dump(),
+    )
+    STORE.recurring_schedules[recurring_schedule_id] = schedule
+    return {"data": {"recurring_schedule_id": recurring_schedule_id}, "meta": {"message_id": "I-0301"}}
+
+
+@app.get("/recurring-schedules/{recurring_schedule_id}")
+def get_recurring_schedule(recurring_schedule_id: str) -> dict:
+    schedule = STORE.recurring_schedules.get(recurring_schedule_id)
+    if not schedule:
+        raise ApiError(status_code=404, message_id="E-0404", message="対象データが存在しません")
+    return {"data": schedule, "meta": {}}
+
+
+@app.patch("/recurring-schedules/{recurring_schedule_id}")
+def update_recurring_schedule(recurring_schedule_id: str, request: RecurringScheduleUpdateRequest) -> dict:
+    schedule = STORE.recurring_schedules.get(recurring_schedule_id)
+    if not schedule:
+        raise ApiError(status_code=404, message_id="E-0404", message="対象データが存在しません")
+    validate_recurring_schedule_request(request)
+    updates = request.model_dump(exclude_unset=True)
+    updated_schedule = schedule.model_copy(update=updates)
+    updated_schedule.updated_at = _now()
+    STORE.recurring_schedules[recurring_schedule_id] = updated_schedule
+    return {"data": {"recurring_schedule_id": recurring_schedule_id}, "meta": {"message_id": "I-0302"}}
+
+
+@app.delete("/recurring-schedules/{recurring_schedule_id}")
+def delete_recurring_schedule(recurring_schedule_id: str) -> dict:
+    schedule = STORE.recurring_schedules.pop(recurring_schedule_id, None)
+    if not schedule:
+        raise ApiError(status_code=404, message_id="E-0404", message="対象データが存在しません")
+    return {"data": {"recurring_schedule_id": recurring_schedule_id}, "meta": {"message_id": "I-0303"}}
 
 
 @app.get("/plans")
@@ -310,11 +420,23 @@ def generate_plan(request: PlanGenerateRequest) -> dict:
         for event in STORE.events.values()
         if event.start_at.astimezone(tzinfo).date() == request.date
     ]
+
+    # Generate events from recurring schedules
+    recurring_schedules = list(STORE.recurring_schedules.values())
+    generated_events = _generate_events_from_recurring_schedules(
+        request.date,
+        request.timezone,
+        recurring_schedules,
+    )
+
+    # Combine fixed events and generated recurring events
+    all_events = target_events + generated_events
+
     free_slots = build_free_slots(
         request.date,
         request.timezone,
         working_slots,
-        target_events,
+        all_events,
     )
 
     tasks = [task for task in STORE.tasks.values() if task.status == "open"]
