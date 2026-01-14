@@ -29,6 +29,7 @@ from .schemas import (
     WarningItem,
     WorkingHour,
 )
+from .services.llm_summary import generate_llm_summary
 from .storage import STORE
 from .validation import (
     normalize_plan_request,
@@ -442,11 +443,16 @@ def generate_plan(request: PlanGenerateRequest) -> dict:
     tasks = [task for task in STORE.tasks.values() if task.status == "open"]
     schedule_result = schedule(tasks, free_slots, constraints, plan_id)
 
-    summary = None
     warnings = schedule_result.warnings[:]
-    warnings.append(
-        WarningItem(message_id="W-0203", message="説明の生成に失敗しました")
+    llm_result = generate_llm_summary(
+        plan_date=request.date,
+        timezone=request.timezone,
+        blocks=schedule_result.blocks,
+        overflow=schedule_result.overflow,
+        constraints=constraints,
+        tasks=tasks,
     )
+    summary = llm_result.summary.model_dump()
 
     params = PlanParams(
         working_hours=[
@@ -490,6 +496,7 @@ def generate_plan(request: PlanGenerateRequest) -> dict:
             "blocks": stored_blocks,
             "overflow": schedule_result.overflow,
             "warnings": warnings,
+            "llm_summary": summary,
         },
         "meta": {"message_id": "I-0201"},
     }
