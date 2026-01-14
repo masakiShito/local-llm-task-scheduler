@@ -63,6 +63,38 @@ const inputBase =
 const labelBase = "text-sm font-medium text-slate-700";
 const cardBase = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 
+function Modal({
+  isOpen,
+  onClose,
+  children,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+      />
+      <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -432,11 +464,12 @@ function PlanPanel({
   );
 }
 
-function TaskForm({
+function TaskFormContent({
   taskForm,
   setTaskForm,
   onSubmit,
   loading,
+  editMode = false,
 }: {
   taskForm: {
     title: string;
@@ -456,14 +489,15 @@ function TaskForm({
   >;
   onSubmit: () => Promise<void>;
   loading: boolean;
+  editMode?: boolean;
 }) {
   return (
-    <div className={`${cardBase} bg-gradient-to-br from-green-50 via-white to-emerald-50 p-6`}>
+    <div className="p-6">
       <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600">
-        ✅ タスク追加
+        {editMode ? "✏️ タスク編集" : "✅ タスク追加"}
       </h2>
       <p className="mt-2 text-sm text-slate-700">
-        まずは今日取り組みたいタスクを追加しましょう。
+        {editMode ? "タスク情報を編集します。" : "まずは今日取り組みたいタスクを追加しましょう。"}
       </p>
       <div className="mt-4 grid gap-4">
         <label className="space-y-2">
@@ -533,17 +567,18 @@ function TaskForm({
         disabled={!taskForm.title || loading}
         className="mt-5 w-full rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:from-green-700 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 transform hover:scale-[1.02] transition-all"
       >
-        {loading ? "⏳ 追加中..." : "➕ タスクを追加"}
+        {loading ? "⏳ 処理中..." : editMode ? "💾 保存" : "➕ タスクを追加"}
       </button>
     </div>
   );
 }
 
-function EventForm({
+function EventFormContent({
   eventForm,
   setEventForm,
   onSubmit,
   loading,
+  editMode = false,
 }: {
   eventForm: {
     title: string;
@@ -561,14 +596,15 @@ function EventForm({
   >;
   onSubmit: () => Promise<void>;
   loading: boolean;
+  editMode?: boolean;
 }) {
   return (
-    <div className={`${cardBase} bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6`}>
+    <div className="p-6">
       <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-        📅 固定予定
+        {editMode ? "✏️ 固定予定編集" : "📅 固定予定追加"}
       </h2>
       <p className="mt-2 text-sm text-slate-700">
-        会議や外出など動かせない予定を登録します。
+        {editMode ? "固定予定を編集します。" : "会議や外出など動かせない予定を登録します。"}
       </p>
       <div className="mt-4 grid gap-4">
         <label className="space-y-2">
@@ -633,27 +669,45 @@ function EventForm({
         disabled={!eventForm.title || loading}
         className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 transform hover:scale-[1.02] transition-all"
       >
-        {loading ? "⏳ 追加中..." : "➕ 予定を追加"}
+        {loading ? "⏳ 処理中..." : editMode ? "💾 保存" : "➕ 予定を追加"}
       </button>
     </div>
   );
 }
 
-function TaskList({ tasks }: { tasks: Task[] }) {
+function TaskList({
+  tasks,
+  onEdit,
+  onDelete,
+  onAdd
+}: {
+  tasks: Task[];
+  onEdit: (task: Task) => void;
+  onDelete: (taskId: string) => Promise<void>;
+  onAdd: () => void;
+}) {
   return (
     <div className={`${cardBase} bg-gradient-to-br from-white to-green-50 p-6`}>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600">
           📝 タスク一覧
         </h3>
-        <span className="rounded-full bg-green-200 px-3 py-1 text-xs font-bold text-green-800">
-          {tasks.length}件
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-green-200 px-3 py-1 text-xs font-bold text-green-800">
+            {tasks.length}件
+          </span>
+          <button
+            onClick={onAdd}
+            className="rounded-lg bg-green-600 px-3 py-1 text-xs font-bold text-white hover:bg-green-700"
+          >
+            ➕ 追加
+          </button>
+        </div>
       </div>
       <div className="mt-4 space-y-3">
         {tasks.length === 0 && (
           <p className="text-sm text-slate-500">
-            まだタスクがありません。上のフォームから追加してください。
+            まだタスクがありません。右上の「追加」ボタンから追加してください。
           </p>
         )}
         {tasks.map((task) => {
@@ -667,9 +721,27 @@ function TaskList({ tasks }: { tasks: Task[] }) {
                 <div className="text-sm font-semibold text-slate-900">
                   {task.title}
                 </div>
-                <span className={`rounded-full ${colors.bg} ${colors.text} px-3 py-1 text-xs font-bold`}>
-                  {priorityLabel(task.priority)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full ${colors.bg} ${colors.text} px-3 py-1 text-xs font-bold`}>
+                    {priorityLabel(task.priority)}
+                  </span>
+                  <button
+                    onClick={() => onEdit(task)}
+                    className="rounded-lg bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700 hover:bg-blue-200"
+                  >
+                    編集
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`「${task.title}」を削除しますか？`)) {
+                        onDelete(task.task_id);
+                      }
+                    }}
+                    className="rounded-lg bg-red-100 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-200"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
               <div className="mt-2 text-xs text-slate-600">
                 ⏱️ {task.estimate_minutes}分
@@ -682,21 +754,39 @@ function TaskList({ tasks }: { tasks: Task[] }) {
   );
 }
 
-function EventList({ events }: { events: EventItem[] }) {
+function EventList({
+  events,
+  onEdit,
+  onDelete,
+  onAdd
+}: {
+  events: EventItem[];
+  onEdit: (event: EventItem) => void;
+  onDelete: (eventId: string) => Promise<void>;
+  onAdd: () => void;
+}) {
   return (
     <div className={`${cardBase} bg-gradient-to-br from-white to-blue-50 p-6`}>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
           📆 固定予定一覧
         </h3>
-        <span className="rounded-full bg-blue-200 px-3 py-1 text-xs font-bold text-blue-800">
-          {events.length}件
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-blue-200 px-3 py-1 text-xs font-bold text-blue-800">
+            {events.length}件
+          </span>
+          <button
+            onClick={onAdd}
+            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700"
+          >
+            ➕ 追加
+          </button>
+        </div>
       </div>
       <div className="mt-4 space-y-3">
         {events.length === 0 && (
           <p className="text-sm text-slate-500">
-            まだ固定予定がありません。必要な予定を登録してください。
+            まだ固定予定がありません。右上の「追加」ボタンから登録してください。
           </p>
         )}
         {events.map((event) => (
@@ -704,8 +794,28 @@ function EventList({ events }: { events: EventItem[] }) {
             key={event.event_id}
             className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-3 shadow-sm"
           >
-            <div className="text-sm font-semibold text-blue-900">
-              📅 {event.title}
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-blue-900">
+                📅 {event.title}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onEdit(event)}
+                  className="rounded-lg bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700 hover:bg-blue-200"
+                >
+                  編集
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`「${event.title}」を削除しますか？`)) {
+                      onDelete(event.event_id);
+                    }
+                  }}
+                  className="rounded-lg bg-red-100 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-200"
+                >
+                  削除
+                </button>
+              </div>
             </div>
             <div className="mt-2 flex items-center gap-2 text-xs text-blue-700">
               <span>🕐 {formatTime(event.start_at)} - {formatTime(event.end_at)}</span>
@@ -717,11 +827,12 @@ function EventList({ events }: { events: EventItem[] }) {
   );
 }
 
-function RecurringScheduleForm({
+function RecurringScheduleFormContent({
   recurringForm,
   setRecurringForm,
   onSubmit,
   loading,
+  editMode = false,
 }: {
   recurringForm: {
     title: string;
@@ -741,6 +852,7 @@ function RecurringScheduleForm({
   >;
   onSubmit: () => Promise<void>;
   loading: boolean;
+  editMode?: boolean;
 }) {
   const dayLabels = ["月", "火", "水", "木", "金", "土", "日"];
 
@@ -754,12 +866,12 @@ function RecurringScheduleForm({
   };
 
   return (
-    <div className={`${cardBase} bg-gradient-to-br from-purple-50 via-white to-pink-50 p-6`}>
+    <div className="p-6">
       <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
-        🔁 繰り返し予定
+        {editMode ? "✏️ 繰り返し予定編集" : "🔁 繰り返し予定追加"}
       </h2>
       <p className="mt-2 text-sm text-slate-700">
-        毎週決まった曜日・時間の予定を登録します（例：月〜金の15:00-16:00）
+        {editMode ? "繰り返し予定を編集します。" : "毎週決まった曜日・時間の予定を登録します（例：月〜金の15:00-16:00）"}
       </p>
       <div className="mt-4 grid gap-4">
         <label className="space-y-2">
@@ -846,13 +958,23 @@ function RecurringScheduleForm({
         disabled={!recurringForm.title || recurringForm.days_of_week.length === 0 || loading}
         className="mt-5 w-full rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-60 transform hover:scale-[1.02] transition-all"
       >
-        {loading ? "⏳ 追加中..." : "➕ 繰り返し予定を追加"}
+        {loading ? "⏳ 処理中..." : editMode ? "💾 保存" : "➕ 繰り返し予定を追加"}
       </button>
     </div>
   );
 }
 
-function RecurringScheduleList({ schedules }: { schedules: RecurringSchedule[] }) {
+function RecurringScheduleList({
+  schedules,
+  onEdit,
+  onDelete,
+  onAdd
+}: {
+  schedules: RecurringSchedule[];
+  onEdit: (schedule: RecurringSchedule) => void;
+  onDelete: (scheduleId: string) => Promise<void>;
+  onAdd: () => void;
+}) {
   const dayLabels = ["月", "火", "水", "木", "金", "土", "日"];
 
   return (
@@ -861,14 +983,22 @@ function RecurringScheduleList({ schedules }: { schedules: RecurringSchedule[] }
         <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
           🔁 繰り返し予定一覧
         </h3>
-        <span className="rounded-full bg-purple-200 px-3 py-1 text-xs font-bold text-purple-800">
-          {schedules.length}件
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-purple-200 px-3 py-1 text-xs font-bold text-purple-800">
+            {schedules.length}件
+          </span>
+          <button
+            onClick={onAdd}
+            className="rounded-lg bg-purple-600 px-3 py-1 text-xs font-bold text-white hover:bg-purple-700"
+          >
+            ➕ 追加
+          </button>
+        </div>
       </div>
       <div className="mt-4 space-y-3">
         {schedules.length === 0 && (
           <p className="text-sm text-slate-500">
-            まだ繰り返し予定がありません。上のフォームから追加してください。
+            まだ繰り返し予定がありません。右上の「追加」ボタンから追加してください。
           </p>
         )}
         {schedules.map((schedule) => (
@@ -876,8 +1006,28 @@ function RecurringScheduleList({ schedules }: { schedules: RecurringSchedule[] }
             key={schedule.recurring_schedule_id}
             className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 px-4 py-3 shadow-sm"
           >
-            <div className="text-sm font-semibold text-purple-900">
-              🔁 {schedule.title}
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-purple-900">
+                🔁 {schedule.title}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onEdit(schedule)}
+                  className="rounded-lg bg-purple-100 px-2 py-1 text-xs font-bold text-purple-700 hover:bg-purple-200"
+                >
+                  編集
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`「${schedule.title}」を削除しますか？`)) {
+                      onDelete(schedule.recurring_schedule_id);
+                    }
+                  }}
+                  className="rounded-lg bg-red-100 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-200"
+                >
+                  削除
+                </button>
+              </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-purple-700">
               <span>🕐 {schedule.start_time} - {schedule.end_time}</span>
@@ -904,6 +1054,13 @@ export default function Home() {
   const [loadingEvent, setLoadingEvent] = useState(false);
   const [loadingRecurring, setLoadingRecurring] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
+
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [recurringModalOpen, setRecurringModalOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingRecurringId, setEditingRecurringId] = useState<string | null>(null);
 
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -979,48 +1136,170 @@ export default function Home() {
     loadLatestPlanBlocks().catch((err) => setError(err.message));
   }, [loadLatestPlanBlocks]);
 
-  const handleCreateTask = async () => {
+  const handleOpenTaskModal = () => {
+    setEditingTaskId(null);
+    setTaskForm({
+      title: "",
+      description: "",
+      type: "task",
+      priority: 3,
+      estimate_minutes: 60,
+    });
+    setTaskModalOpen(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTaskId(task.task_id);
+    setTaskForm({
+      title: task.title,
+      description: "",
+      type: "task",
+      priority: task.priority,
+      estimate_minutes: task.estimate_minutes,
+    });
+    setTaskModalOpen(true);
+  };
+
+  const handleSaveTask = async () => {
     setError(null);
     setLoadingTask(true);
     try {
-      await fetchJson("/tasks", {
-        method: "POST",
-        body: JSON.stringify(taskForm),
+      if (editingTaskId) {
+        await fetchJson(`/tasks/${editingTaskId}`, {
+          method: "PUT",
+          body: JSON.stringify(taskForm),
+        });
+      } else {
+        await fetchJson("/tasks", {
+          method: "POST",
+          body: JSON.stringify(taskForm),
+        });
+      }
+      setTaskModalOpen(false);
+      setEditingTaskId(null);
+      setTaskForm({
+        title: "",
+        description: "",
+        type: "task",
+        priority: 3,
+        estimate_minutes: 60,
       });
-      setTaskForm((prev) => ({ ...prev, title: "", description: "" }));
       await refreshTasks();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "タスクの作成に失敗しました。");
+      setError(err instanceof Error ? err.message : "タスクの保存に失敗しました。");
     } finally {
       setLoadingTask(false);
     }
   };
 
-  const handleCreateEvent = async () => {
+  const handleDeleteTask = async (taskId: string) => {
+    setError(null);
+    try {
+      await fetchJson(`/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      await refreshTasks();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "タスクの削除に失敗しました。");
+    }
+  };
+
+  const handleOpenEventModal = () => {
+    setEditingEventId(null);
+    setEventForm({ title: "", start_at: "", end_at: "", description: "" });
+    setEventModalOpen(true);
+  };
+
+  const handleEditEvent = (event: EventItem) => {
+    setEditingEventId(event.event_id);
+    setEventForm({
+      title: event.title,
+      start_at: event.start_at,
+      end_at: event.end_at,
+      description: "",
+    });
+    setEventModalOpen(true);
+  };
+
+  const handleSaveEvent = async () => {
     setError(null);
     setLoadingEvent(true);
     try {
-      await fetchJson("/events", {
-        method: "POST",
-        body: JSON.stringify(eventForm),
-      });
+      if (editingEventId) {
+        await fetchJson(`/events/${editingEventId}`, {
+          method: "PUT",
+          body: JSON.stringify(eventForm),
+        });
+      } else {
+        await fetchJson("/events", {
+          method: "POST",
+          body: JSON.stringify(eventForm),
+        });
+      }
+      setEventModalOpen(false);
+      setEditingEventId(null);
       setEventForm({ title: "", start_at: "", end_at: "", description: "" });
       await refreshEvents();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "予定の作成に失敗しました。");
+      setError(err instanceof Error ? err.message : "予定の保存に失敗しました。");
     } finally {
       setLoadingEvent(false);
     }
   };
 
-  const handleCreateRecurringSchedule = async () => {
+  const handleDeleteEvent = async (eventId: string) => {
+    setError(null);
+    try {
+      await fetchJson(`/events/${eventId}`, {
+        method: "DELETE",
+      });
+      await refreshEvents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "予定の削除に失敗しました。");
+    }
+  };
+
+  const handleOpenRecurringModal = () => {
+    setEditingRecurringId(null);
+    setRecurringForm({
+      title: "",
+      description: "",
+      start_time: "09:00",
+      end_time: "10:00",
+      days_of_week: [],
+    });
+    setRecurringModalOpen(true);
+  };
+
+  const handleEditRecurring = (schedule: RecurringSchedule) => {
+    setEditingRecurringId(schedule.recurring_schedule_id);
+    setRecurringForm({
+      title: schedule.title,
+      description: schedule.description || "",
+      start_time: schedule.start_time,
+      end_time: schedule.end_time,
+      days_of_week: schedule.days_of_week,
+    });
+    setRecurringModalOpen(true);
+  };
+
+  const handleSaveRecurring = async () => {
     setError(null);
     setLoadingRecurring(true);
     try {
-      await fetchJson("/recurring-schedules", {
-        method: "POST",
-        body: JSON.stringify(recurringForm),
-      });
+      if (editingRecurringId) {
+        await fetchJson(`/recurring-schedules/${editingRecurringId}`, {
+          method: "PUT",
+          body: JSON.stringify(recurringForm),
+        });
+      } else {
+        await fetchJson("/recurring-schedules", {
+          method: "POST",
+          body: JSON.stringify(recurringForm),
+        });
+      }
+      setRecurringModalOpen(false);
+      setEditingRecurringId(null);
       setRecurringForm({
         title: "",
         description: "",
@@ -1029,11 +1308,24 @@ export default function Home() {
         days_of_week: [],
       });
       await refreshRecurringSchedules();
-      await refreshEvents(); // Refresh events to show generated recurring events
+      await refreshEvents();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "繰り返し予定の作成に失敗しました。");
+      setError(err instanceof Error ? err.message : "繰り返し予定の保存に失敗しました。");
     } finally {
       setLoadingRecurring(false);
+    }
+  };
+
+  const handleDeleteRecurring = async (scheduleId: string) => {
+    setError(null);
+    try {
+      await fetchJson(`/recurring-schedules/${scheduleId}`, {
+        method: "DELETE",
+      });
+      await refreshRecurringSchedules();
+      await refreshEvents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "繰り返し予定の削除に失敗しました。");
     }
   };
 
@@ -1075,27 +1367,24 @@ export default function Home() {
         )}
         <div className="grid gap-6 lg:grid-cols-12">
           <div className="order-2 space-y-6 lg:order-1 lg:col-span-5">
-            <TaskForm
-              taskForm={taskForm}
-              setTaskForm={setTaskForm}
-              onSubmit={handleCreateTask}
-              loading={loadingTask}
+            <TaskList
+              tasks={tasks}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
+              onAdd={handleOpenTaskModal}
             />
-            <TaskList tasks={tasks} />
-            <EventForm
-              eventForm={eventForm}
-              setEventForm={setEventForm}
-              onSubmit={handleCreateEvent}
-              loading={loadingEvent}
+            <EventList
+              events={events}
+              onEdit={handleEditEvent}
+              onDelete={handleDeleteEvent}
+              onAdd={handleOpenEventModal}
             />
-            <EventList events={events} />
-            <RecurringScheduleForm
-              recurringForm={recurringForm}
-              setRecurringForm={setRecurringForm}
-              onSubmit={handleCreateRecurringSchedule}
-              loading={loadingRecurring}
+            <RecurringScheduleList
+              schedules={recurringSchedules}
+              onEdit={handleEditRecurring}
+              onDelete={handleDeleteRecurring}
+              onAdd={handleOpenRecurringModal}
             />
-            <RecurringScheduleList schedules={recurringSchedules} />
           </div>
           <div className="order-1 lg:order-2 lg:col-span-7">
             <PlanPanel
@@ -1110,6 +1399,36 @@ export default function Home() {
             />
           </div>
         </div>
+
+        <Modal isOpen={taskModalOpen} onClose={() => setTaskModalOpen(false)}>
+          <TaskFormContent
+            taskForm={taskForm}
+            setTaskForm={setTaskForm}
+            onSubmit={handleSaveTask}
+            loading={loadingTask}
+            editMode={editingTaskId !== null}
+          />
+        </Modal>
+
+        <Modal isOpen={eventModalOpen} onClose={() => setEventModalOpen(false)}>
+          <EventFormContent
+            eventForm={eventForm}
+            setEventForm={setEventForm}
+            onSubmit={handleSaveEvent}
+            loading={loadingEvent}
+            editMode={editingEventId !== null}
+          />
+        </Modal>
+
+        <Modal isOpen={recurringModalOpen} onClose={() => setRecurringModalOpen(false)}>
+          <RecurringScheduleFormContent
+            recurringForm={recurringForm}
+            setRecurringForm={setRecurringForm}
+            onSubmit={handleSaveRecurring}
+            loading={loadingRecurring}
+            editMode={editingRecurringId !== null}
+          />
+        </Modal>
       </div>
     </main>
   );
