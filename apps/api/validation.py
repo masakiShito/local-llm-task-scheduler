@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import time
 
 from .errors import ApiError, FieldError
-from .schemas import Constraints, EventUpdateRequest, PlanGenerateRequest, TaskUpdateRequest
+from .schemas import (
+    Constraints,
+    EventUpdateRequest,
+    PlanGenerateRequest,
+    RecurringScheduleCreateRequest,
+    RecurringScheduleUpdateRequest,
+    TaskUpdateRequest,
+)
 
 
 def _time_from_hhmm(value: str) -> time | None:
@@ -141,3 +148,64 @@ def normalize_plan_request(request: PlanGenerateRequest) -> tuple[list[tuple[tim
         )
 
     return working_slots, constraints
+
+
+def validate_recurring_schedule_request(
+    request: RecurringScheduleCreateRequest | RecurringScheduleUpdateRequest,
+) -> None:
+    field_errors: list[FieldError] = []
+
+    # Validate time format and order
+    if hasattr(request, 'start_time') and request.start_time:
+        start = _time_from_hhmm(request.start_time)
+        if start is None:
+            field_errors.append(
+                FieldError("start_time", "E-0400", "開始時刻を確認してください")
+            )
+
+    if hasattr(request, 'end_time') and request.end_time:
+        end = _time_from_hhmm(request.end_time)
+        if end is None:
+            field_errors.append(
+                FieldError("end_time", "E-0400", "終了時刻を確認してください")
+            )
+
+    if hasattr(request, 'start_time') and hasattr(request, 'end_time'):
+        if request.start_time and request.end_time:
+            start = _time_from_hhmm(request.start_time)
+            end = _time_from_hhmm(request.end_time)
+            if start and end and start >= end:
+                field_errors.append(
+                    FieldError("start_time", "E-0400", "開始時刻を確認してください")
+                )
+                field_errors.append(
+                    FieldError("end_time", "E-0400", "終了時刻を確認してください")
+                )
+
+    # Validate days_of_week
+    if hasattr(request, 'days_of_week') and request.days_of_week:
+        for day in request.days_of_week:
+            if not (0 <= day <= 6):
+                field_errors.append(
+                    FieldError("days_of_week", "E-0400", "曜日は0〜6で入力してください")
+                )
+                break
+
+    # Validate valid_from and valid_to
+    if hasattr(request, 'valid_from') and hasattr(request, 'valid_to'):
+        if request.valid_from and request.valid_to:
+            if request.valid_from >= request.valid_to:
+                field_errors.append(
+                    FieldError("valid_from", "E-0400", "開始日を確認してください")
+                )
+                field_errors.append(
+                    FieldError("valid_to", "E-0400", "終了日を確認してください")
+                )
+
+    if field_errors:
+        raise ApiError(
+            status_code=400,
+            message_id="E-0400",
+            message="入力内容が不正です",
+            field_errors=field_errors,
+        )

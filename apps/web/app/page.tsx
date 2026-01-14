@@ -20,6 +20,17 @@ type EventItem = {
   end_at: string;
 };
 
+type RecurringSchedule = {
+  recurring_schedule_id: string;
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  days_of_week: number[];
+  valid_from?: string;
+  valid_to?: string;
+};
+
 type PlanListItem = {
   plan_id: string;
   date: string;
@@ -706,9 +717,184 @@ function EventList({ events }: { events: EventItem[] }) {
   );
 }
 
+function RecurringScheduleForm({
+  recurringForm,
+  setRecurringForm,
+  onSubmit,
+  loading,
+}: {
+  recurringForm: {
+    title: string;
+    description: string;
+    start_time: string;
+    end_time: string;
+    days_of_week: number[];
+  };
+  setRecurringForm: React.Dispatch<
+    React.SetStateAction<{
+      title: string;
+      description: string;
+      start_time: string;
+      end_time: string;
+      days_of_week: number[];
+    }>
+  >;
+  onSubmit: () => Promise<void>;
+  loading: boolean;
+}) {
+  const dayLabels = ["月", "火", "水", "木", "金", "土", "日"];
+
+  const toggleDay = (day: number) => {
+    setRecurringForm((prev) => {
+      const newDays = prev.days_of_week.includes(day)
+        ? prev.days_of_week.filter((d) => d !== day)
+        : [...prev.days_of_week, day].sort();
+      return { ...prev, days_of_week: newDays };
+    });
+  };
+
+  return (
+    <div className={`${cardBase} bg-gradient-to-br from-purple-50 via-white to-pink-50 p-6`}>
+      <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+        🔁 繰り返し予定
+      </h2>
+      <p className="mt-2 text-sm text-slate-700">
+        毎週決まった曜日・時間の予定を登録します（例：月〜金の15:00-16:00）
+      </p>
+      <div className="mt-4 grid gap-4">
+        <label className="space-y-2">
+          <span className={labelBase}>タイトル</span>
+          <input
+            value={recurringForm.title}
+            className={inputBase}
+            placeholder="例: 定例ミーティング"
+            onChange={(event) =>
+              setRecurringForm((prev) => ({ ...prev, title: event.target.value }))
+            }
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-2">
+            <span className={labelBase}>開始時刻</span>
+            <input
+              type="time"
+              className={inputBase}
+              value={recurringForm.start_time}
+              onChange={(event) =>
+                setRecurringForm((prev) => ({
+                  ...prev,
+                  start_time: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="space-y-2">
+            <span className={labelBase}>終了時刻</span>
+            <input
+              type="time"
+              className={inputBase}
+              value={recurringForm.end_time}
+              onChange={(event) =>
+                setRecurringForm((prev) => ({
+                  ...prev,
+                  end_time: event.target.value,
+                }))
+              }
+            />
+          </label>
+        </div>
+        <label className="space-y-2">
+          <span className={labelBase}>繰り返す曜日</span>
+          <div className="flex gap-2">
+            {dayLabels.map((label, index) => {
+              const isSelected = recurringForm.days_of_week.includes(index);
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => toggleDay(index)}
+                  className={`flex-1 rounded-lg border px-2 py-2 text-xs font-bold transition-all ${
+                    isSelected
+                      ? "border-purple-500 bg-purple-100 text-purple-900"
+                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </label>
+        <label className="space-y-2">
+          <span className={labelBase}>説明</span>
+          <textarea
+            value={recurringForm.description}
+            rows={2}
+            className={inputBase}
+            placeholder="補足があれば入力してください"
+            onChange={(event) =>
+              setRecurringForm((prev) => ({
+                ...prev,
+                description: event.target.value,
+              }))
+            }
+          />
+        </label>
+      </div>
+      <button
+        onClick={onSubmit}
+        disabled={!recurringForm.title || recurringForm.days_of_week.length === 0 || loading}
+        className="mt-5 w-full rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-60 transform hover:scale-[1.02] transition-all"
+      >
+        {loading ? "⏳ 追加中..." : "➕ 繰り返し予定を追加"}
+      </button>
+    </div>
+  );
+}
+
+function RecurringScheduleList({ schedules }: { schedules: RecurringSchedule[] }) {
+  const dayLabels = ["月", "火", "水", "木", "金", "土", "日"];
+
+  return (
+    <div className={`${cardBase} bg-gradient-to-br from-white to-purple-50 p-6`}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+          🔁 繰り返し予定一覧
+        </h3>
+        <span className="rounded-full bg-purple-200 px-3 py-1 text-xs font-bold text-purple-800">
+          {schedules.length}件
+        </span>
+      </div>
+      <div className="mt-4 space-y-3">
+        {schedules.length === 0 && (
+          <p className="text-sm text-slate-500">
+            まだ繰り返し予定がありません。上のフォームから追加してください。
+          </p>
+        )}
+        {schedules.map((schedule) => (
+          <div
+            key={schedule.recurring_schedule_id}
+            className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 px-4 py-3 shadow-sm"
+          >
+            <div className="text-sm font-semibold text-purple-900">
+              🔁 {schedule.title}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-purple-700">
+              <span>🕐 {schedule.start_time} - {schedule.end_time}</span>
+              <span>•</span>
+              <span>{schedule.days_of_week.map((d) => dayLabels[d]).join(", ")}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
   const [plans, setPlans] = useState<PlanListItem[]>([]);
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
   const [warnings, setWarnings] = useState<WarningItem[]>([]);
@@ -716,6 +902,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loadingTask, setLoadingTask] = useState(false);
   const [loadingEvent, setLoadingEvent] = useState(false);
+  const [loadingRecurring, setLoadingRecurring] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
 
   const [taskForm, setTaskForm] = useState({
@@ -730,6 +917,13 @@ export default function Home() {
     start_at: "",
     end_at: "",
     description: "",
+  });
+  const [recurringForm, setRecurringForm] = useState({
+    title: "",
+    description: "",
+    start_time: "09:00",
+    end_time: "10:00",
+    days_of_week: [] as number[],
   });
   const [planForm, setPlanForm] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -752,6 +946,11 @@ export default function Home() {
     setEvents(payload.data);
   }, [planForm.date]);
 
+  const refreshRecurringSchedules = useCallback(async () => {
+    const payload = await fetchJson<{ data: RecurringSchedule[] }>("/recurring-schedules");
+    setRecurringSchedules(payload.data);
+  }, []);
+
   const refreshPlans = useCallback(async () => {
     const payload = await fetchJson<{ data: PlanListItem[] }>("/plans");
     setPlans(payload.data);
@@ -772,8 +971,9 @@ export default function Home() {
   useEffect(() => {
     refreshTasks().catch((err) => setError(err.message));
     refreshEvents().catch((err) => setError(err.message));
+    refreshRecurringSchedules().catch((err) => setError(err.message));
     refreshPlans().catch((err) => setError(err.message));
-  }, [refreshEvents, refreshPlans, refreshTasks]);
+  }, [refreshEvents, refreshPlans, refreshRecurringSchedules, refreshTasks]);
 
   useEffect(() => {
     loadLatestPlanBlocks().catch((err) => setError(err.message));
@@ -810,6 +1010,30 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "予定の作成に失敗しました。");
     } finally {
       setLoadingEvent(false);
+    }
+  };
+
+  const handleCreateRecurringSchedule = async () => {
+    setError(null);
+    setLoadingRecurring(true);
+    try {
+      await fetchJson("/recurring-schedules", {
+        method: "POST",
+        body: JSON.stringify(recurringForm),
+      });
+      setRecurringForm({
+        title: "",
+        description: "",
+        start_time: "09:00",
+        end_time: "10:00",
+        days_of_week: [],
+      });
+      await refreshRecurringSchedules();
+      await refreshEvents(); // Refresh events to show generated recurring events
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "繰り返し予定の作成に失敗しました。");
+    } finally {
+      setLoadingRecurring(false);
     }
   };
 
@@ -865,6 +1089,13 @@ export default function Home() {
               loading={loadingEvent}
             />
             <EventList events={events} />
+            <RecurringScheduleForm
+              recurringForm={recurringForm}
+              setRecurringForm={setRecurringForm}
+              onSubmit={handleCreateRecurringSchedule}
+              loading={loadingRecurring}
+            />
+            <RecurringScheduleList schedules={recurringSchedules} />
           </div>
           <div className="order-1 lg:order-2 lg:col-span-7">
             <PlanPanel
