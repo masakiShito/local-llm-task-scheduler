@@ -124,6 +124,11 @@ def generate_llm_summary(
                 temperature=temperature,
                 client=client,
             )
+            logger.info(
+                "LLM summary generated (attempt=%s, model=%s)",
+                attempt,
+                effective_settings.ollama_model,
+            )
             return LlmSummaryResult(summary=summary, succeeded=True)
         except httpx.TimeoutException as exc:
             last_reason = "タイムアウト"
@@ -189,6 +194,11 @@ def _request_llm_summary(
             json=payload,
         )
         response.raise_for_status()
+        logger.info(
+            "LLM request succeeded (status=%s, model=%s)",
+            response.status_code,
+            settings.ollama_model,
+        )
         data = response.json()
     finally:
         if client is None:
