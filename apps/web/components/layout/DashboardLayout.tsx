@@ -4,12 +4,14 @@ interface DashboardLayoutProps {
   leftColumn: React.ReactNode;
   centerColumn: React.ReactNode;
   rightColumn: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   leftColumn,
   centerColumn,
   rightColumn,
+  children,
 }) => {
   const currentDate = new Date();
   const formattedDate = `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月${currentDate.getDate()}日${['日', '月', '火', '水', '木', '金', '土'][currentDate.getDay()]}曜日`;
@@ -43,6 +45,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
         </div>
       </main>
+      {children}
     </div>
   );
 };

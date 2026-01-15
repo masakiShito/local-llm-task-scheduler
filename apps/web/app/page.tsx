@@ -6,6 +6,8 @@ import { TaskList } from "@/components/tasks/TaskList";
 import { ScheduleSection } from "@/components/schedule/ScheduleSection";
 import { PlanPanel } from "@/components/plan/PlanPanel";
 import { AISummary } from "@/components/ai/AISummary";
+import { TaskModal, EventModal, RecurringScheduleModal } from "@/components/modals";
+import type { TaskFormData, EventFormData, RecurringScheduleFormData } from "@/components/modals";
 
 const apiBase =
   process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -17,8 +19,12 @@ type Task = {
   priority: number;
   estimate_minutes: number;
   description?: string;
-  type?: string;
+  type: string;
   due_at?: string;
+  available_from?: string;
+  available_to?: string;
+  splittable: boolean;
+  min_block_minutes?: number;
 };
 
 type EventItem = {
@@ -93,6 +99,12 @@ export default function Home() {
   // Plan state
   const [currentDate] = useState(new Date().toISOString().slice(0, 10));
   const [planGenerated, setPlanGenerated] = useState(false);
+
+  // Modal state
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isRecurringScheduleModalOpen, setIsRecurringScheduleModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
   // Fetch data functions
   const refreshTasks = useCallback(async () => {
@@ -170,13 +182,54 @@ export default function Home() {
   }, [refreshTasks]);
 
   const handleAddTask = () => {
-    // TODO: Open task creation modal
-    alert("Task creation modal - to be implemented");
+    setEditingTask(undefined);
+    setIsTaskModalOpen(true);
   };
 
   const handleEditTask = (task: Task) => {
-    // TODO: Open task edit modal
-    alert(`Edit task: ${task.title} - to be implemented`);
+    setEditingTask(task);
+    setIsTaskModalOpen(true);
+  };
+
+  const handleSaveTask = async (taskData: TaskFormData) => {
+    if (editingTask) {
+      // Update existing task
+      await fetchJson(`/tasks/${editingTask.task_id}`, {
+        method: "PATCH",
+        body: JSON.stringify(taskData),
+      });
+    } else {
+      // Create new task
+      await fetchJson("/tasks", {
+        method: "POST",
+        body: JSON.stringify(taskData),
+      });
+    }
+    await refreshTasks();
+  };
+
+  const handleAddEvent = () => {
+    setIsEventModalOpen(true);
+  };
+
+  const handleSaveEvent = async (eventData: EventFormData) => {
+    await fetchJson("/events", {
+      method: "POST",
+      body: JSON.stringify(eventData),
+    });
+    await refreshEvents();
+  };
+
+  const handleAddRecurringSchedule = () => {
+    setIsRecurringScheduleModalOpen(true);
+  };
+
+  const handleSaveRecurringSchedule = async (scheduleData: RecurringScheduleFormData) => {
+    await fetchJson("/recurring-schedules", {
+      method: "POST",
+      body: JSON.stringify(scheduleData),
+    });
+    await refreshRecurringSchedules();
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -276,9 +329,11 @@ export default function Home() {
             showFixedSchedules={showFixedSchedules}
             onToggleShowFixedSchedules={setShowFixedSchedules}
             fixedSchedulesContent={renderFixedSchedulesContent()}
+            onAddFixedSchedule={handleAddEvent}
             showRecurringSchedules={showRecurringSchedules}
             onToggleShowRecurringSchedules={setShowRecurringSchedules}
             recurringSchedulesContent={renderRecurringSchedulesContent()}
+            onAddRecurringSchedule={handleAddRecurringSchedule}
           />
         </>
       }
@@ -294,6 +349,24 @@ export default function Home() {
       rightColumn={
         <AISummary summary={llmSummary} />
       }
-    />
+    >
+      <TaskModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        onSave={handleSaveTask}
+        task={editingTask}
+      />
+      <EventModal
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
+        onSave={handleSaveEvent}
+        defaultDate={currentDate}
+      />
+      <RecurringScheduleModal
+        isOpen={isRecurringScheduleModalOpen}
+        onClose={() => setIsRecurringScheduleModalOpen(false)}
+        onSave={handleSaveRecurringSchedule}
+      />
+    </DashboardLayout>
   );
 }
