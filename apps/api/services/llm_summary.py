@@ -117,6 +117,13 @@ def generate_llm_summary(
 
     for attempt in range(1, max_retries + 1):
         temperature = 0.0 if attempt > 1 else 0.2
+        logger.info(
+            "LLM summary attempt started (attempt=%s, model=%s, base_url=%s, temperature=%s)",
+            attempt,
+            effective_settings.ollama_model,
+            effective_settings.ollama_base_url,
+            temperature,
+        )
         try:
             summary = _request_llm_summary(
                 llm_input=llm_input,
