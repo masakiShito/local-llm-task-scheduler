@@ -58,6 +58,18 @@ type OverflowItem = {
   reason: string;
 };
 
+type LlmSummaryOverflowPlan = {
+  taskTitle: string;
+  suggestions: string[];
+};
+
+type LlmSummary = {
+  summary: string;
+  why_this_order: string[];
+  warnings: string[];
+  overflow_plan: LlmSummaryOverflowPlan[];
+};
+
 const inputBase =
   "w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400";
 const labelBase = "text-sm font-medium text-slate-700";
@@ -290,6 +302,7 @@ function PlanPanel({
   events,
   warnings,
   overflows,
+  llmSummary,
   loading,
 }: {
   planForm: {
@@ -309,6 +322,7 @@ function PlanPanel({
   events: EventItem[];
   warnings: WarningItem[];
   overflows: OverflowItem[];
+  llmSummary: LlmSummary | null;
   loading: boolean;
 }) {
   return (
@@ -460,6 +474,75 @@ function PlanPanel({
           </div>
         </div>
       )}
+
+      <div className={`${cardBase} bg-gradient-to-br from-white to-indigo-50 p-6`}>
+        <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+          🤖 AIサマリー
+        </h2>
+        {llmSummary ? (
+          <div className="mt-4 space-y-4 text-sm text-slate-700">
+            <div className="rounded-xl border border-indigo-200 bg-white px-4 py-3">
+              <div className="text-xs font-semibold text-indigo-500">サマリー</div>
+              <p className="mt-2 whitespace-pre-wrap">{llmSummary.summary}</p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="text-xs font-semibold text-slate-500">順序の理由</div>
+                {llmSummary.why_this_order.length > 0 ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {llmSummary.why_this_order.map((item, index) => (
+                      <li key={`why-${index}`}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-slate-400">情報なし</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                <div className="text-xs font-semibold text-amber-600">AI注意事項</div>
+                {llmSummary.warnings.length > 0 ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {llmSummary.warnings.map((warning, index) => (
+                      <li key={`ai-warning-${index}`}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-amber-700">注意事項なし</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-purple-900">
+              <div className="text-xs font-semibold text-purple-600">オーバーフロー提案</div>
+              {llmSummary.overflow_plan.length > 0 ? (
+                <div className="mt-2 space-y-3">
+                  {llmSummary.overflow_plan.map((plan, index) => (
+                    <div key={`overflow-${index}`} className="rounded-lg border border-purple-200 bg-white px-3 py-2">
+                      <div className="text-sm font-semibold">{plan.taskTitle}</div>
+                      {plan.suggestions.length > 0 ? (
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-purple-800">
+                          {plan.suggestions.map((suggestion, suggestionIndex) => (
+                            <li key={`overflow-${index}-suggestion-${suggestionIndex}`}>{suggestion}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-sm text-purple-700">提案なし</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-purple-700">オーバーフロー提案なし</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-slate-500">
+            まだAIサマリーはありません。計画生成後に表示されます。
+          </p>
+        )}
+      </div>
     </section>
   );
 }
@@ -1049,6 +1132,7 @@ export default function Home() {
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
   const [warnings, setWarnings] = useState<WarningItem[]>([]);
   const [overflows, setOverflows] = useState<OverflowItem[]>([]);
+  const [llmSummary, setLlmSummary] = useState<LlmSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingTask, setLoadingTask] = useState(false);
   const [loadingEvent, setLoadingEvent] = useState(false);
@@ -1338,6 +1422,7 @@ export default function Home() {
           blocks: PlanBlock[];
           warnings: WarningItem[];
           overflow: OverflowItem[];
+          llm_summary: LlmSummary;
         };
       }>("/plans/generate", {
         method: "POST",
@@ -1346,9 +1431,11 @@ export default function Home() {
       setBlocks(payload.data.blocks);
       setWarnings(payload.data.warnings);
       setOverflows(payload.data.overflow);
+      setLlmSummary(payload.data.llm_summary);
       await refreshPlans();
     } catch (err) {
       setError(err instanceof Error ? err.message : "計画の生成に失敗しました。");
+      setLlmSummary(null);
     } finally {
       setLoadingPlan(false);
     }
@@ -1395,6 +1482,7 @@ export default function Home() {
               events={events}
               warnings={warnings}
               overflows={overflows}
+              llmSummary={llmSummary}
               loading={loadingPlan}
             />
           </div>
