@@ -8,20 +8,24 @@ interface ScheduleSectionProps {
   showFixedSchedules: boolean;
   onToggleShowFixedSchedules: (show: boolean) => void;
   fixedSchedulesContent: React.ReactNode;
+  onAddFixedSchedule?: () => void;
 
   // Recurring schedules
   showRecurringSchedules: boolean;
   onToggleShowRecurringSchedules: (show: boolean) => void;
   recurringSchedulesContent: React.ReactNode;
+  onAddRecurringSchedule?: () => void;
 }
 
 export const ScheduleSection: React.FC<ScheduleSectionProps> = ({
   showFixedSchedules,
   onToggleShowFixedSchedules,
   fixedSchedulesContent,
+  onAddFixedSchedule,
   showRecurringSchedules,
   onToggleShowRecurringSchedules,
   recurringSchedulesContent,
+  onAddRecurringSchedule,
 }) => {
   return (
     <Card>
@@ -39,6 +43,7 @@ export const ScheduleSection: React.FC<ScheduleSectionProps> = ({
           title="固定予定"
           showList={showFixedSchedules}
           onToggleShowList={onToggleShowFixedSchedules}
+          onAdd={onAddFixedSchedule}
         >
           {fixedSchedulesContent}
         </SchedulePanel>
@@ -47,6 +52,7 @@ export const ScheduleSection: React.FC<ScheduleSectionProps> = ({
           title="繰り返し予定"
           showList={showRecurringSchedules}
           onToggleShowList={onToggleShowRecurringSchedules}
+          onAdd={onAddRecurringSchedule}
         >
           {recurringSchedulesContent}
         </SchedulePanel>
