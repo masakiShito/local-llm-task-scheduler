@@ -105,13 +105,6 @@ export const AISummary: React.FC<AISummaryProps> = ({ summary }) => {
           </div>
         </div>
       )}
-
-      {/* Overview link */}
-      <div className="mt-4 pt-4 border-t border-purple-200">
-        <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-          オーバーフロー一覧
-        </button>
-      </div>
     </Card>
   );
 };
