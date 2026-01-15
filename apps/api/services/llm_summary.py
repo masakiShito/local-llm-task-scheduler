@@ -147,6 +147,12 @@ def generate_llm_summary(
             _log_llm_failure(exc, attempt, None)
 
     fallback = _build_fallback_summary(overflow=overflow, reason=last_reason)
+    logger.warning(
+        "LLM summary fallback used (reason=%s, model=%s, base_url=%s)",
+        last_reason,
+        effective_settings.ollama_model,
+        effective_settings.ollama_base_url,
+    )
     return LlmSummaryResult(summary=fallback, succeeded=False)
 
 
