@@ -171,13 +171,25 @@ def _request_llm_summary(
     client: httpx.Client | None,
 ) -> LlmSummary:
     system_prompt = (
-        "You are a scheduling assistant. You must only summarize the provided plan. "
-        "Do not optimize or re-assign tasks. Use only the facts in the input JSON. "
+        "You are an expert productivity coach and scheduling assistant. "
+        "Analyze the provided schedule and give practical, actionable advice. "
+        "Focus on task prioritization, time management, and realistic goal-setting. "
         "Return ONLY valid JSON that matches the required schema."
     )
     user_prompt = (
-        "入力JSONをもとに、説明文を生成してください。\n"
-        "以下のスキーマに厳密に従い、JSONのみで返答してください。\n"
+        "以下の一日のスケジュールを分析し、実用的なアドバイスを日本語で生成してください。\n\n"
+        "必須要件：\n"
+        "1. summary: 本日のスケジュール全体の要約と、最も重要なポイントを2-3文で説明\n"
+        "2. why_this_order: タスクがこの順序で配置された理由を具体的に3-5点で説明（優先度、期日、集中力の変化などを考慮）\n"
+        "3. warnings: 時間配分やタスク量に関する注意点があれば2-3点挙げる（なければ空配列）\n"
+        "4. overflow_plan: 時間内に収まらなかったタスクについて、具体的な対処法を2-3個提案\n\n"
+        "アドバイスのガイドライン：\n"
+        "- 優先度の高いタスクを優先的に配置\n"
+        "- 期日が近いタスクを考慮\n"
+        "- 午前中は集中力が高いため、難しいタスクを配置\n"
+        "- 昼休憩後は比較的軽めのタスクから開始すると良い\n"
+        "- オーバーフローしたタスクは、翌日への繰り越し、分割実行、優先度の見直しなどを提案\n\n"
+        "以下のスキーマに厳密に従い、JSONのみで返答してください：\n"
         "{\n"
         "  \"summary\": \"string\",\n"
         "  \"why_this_order\": [\"string\"],\n"
@@ -186,8 +198,8 @@ def _request_llm_summary(
         "    { \"taskTitle\": \"string\", \"suggestions\": [\"string\"] }\n"
         "  ]\n"
         "}\n\n"
-        "入力JSON:\n"
-        f"{json.dumps(llm_input, ensure_ascii=False)}"
+        "入力データ:\n"
+        f"{json.dumps(llm_input, ensure_ascii=False, indent=2)}"
     )
 
     payload = {

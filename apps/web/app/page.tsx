@@ -168,6 +168,13 @@ function kindLabel(kind: string) {
   return "";
 }
 
+function isLunchBreak(startTime: string): boolean {
+  const startMinutes = timeToMinutes(startTime);
+  if (startMinutes === null) return false;
+  // 11:30 (690分) から 13:30 (810分) の間に開始する休憩を昼休憩とみなす
+  return startMinutes >= 690 && startMinutes <= 810;
+}
+
 function priorityLabel(priority: number) {
   if (priority >= 4) return "高";
   if (priority >= 2) return "中";
@@ -243,33 +250,44 @@ function Timeline({ blocks, events }: { blocks: PlanBlock[]; events: EventItem[]
         } else {
           const block = item.data;
           const isBreak = block.kind === "break";
+          const isLunch = isBreak && isLunchBreak(block.start_at);
           return (
             <div
               key={block.block_id}
               className={`rounded-2xl border px-4 py-3 shadow-sm ${
-                isBreak
+                isLunch
+                  ? "border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50"
+                  : isBreak
                   ? "border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50"
                   : "border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50"
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className={`text-sm font-semibold ${isBreak ? "text-amber-900" : "text-emerald-900"}`}>
-                  {isBreak ? "☕ " : "✓ "}
-                  {block.task_title ?? "予定"}
+                <div className={`text-sm font-semibold ${
+                  isLunch ? "text-orange-900" : isBreak ? "text-amber-900" : "text-emerald-900"
+                }`}>
+                  {isLunch ? "🍱 " : isBreak ? "☕ " : "✓ "}
+                  {isLunch ? "昼休憩" : block.task_title ?? "予定"}
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  isBreak
+                  isLunch
+                    ? "bg-orange-200 text-orange-800"
+                    : isBreak
                     ? "bg-amber-200 text-amber-800"
                     : "bg-emerald-200 text-emerald-800"
                 }`}>
-                  {kindLabel(block.kind)}
+                  {isLunch ? "昼休憩" : kindLabel(block.kind)}
                 </span>
               </div>
-              <div className={`mt-2 flex flex-wrap items-center gap-3 text-sm ${isBreak ? "text-amber-700" : "text-emerald-700"}`}>
+              <div className={`mt-2 flex flex-wrap items-center gap-3 text-sm ${
+                isLunch ? "text-orange-700" : isBreak ? "text-amber-700" : "text-emerald-700"
+              }`}>
                 <span>
                   {formatTime(block.start_at)} - {formatTime(block.end_at)}
                 </span>
-                <span className={`text-xs ${isBreak ? "text-amber-600" : "text-emerald-600"}`}>
+                <span className={`text-xs ${
+                  isLunch ? "text-orange-600" : isBreak ? "text-amber-600" : "text-emerald-600"
+                }`}>
                   {formatDuration(block.start_at, block.end_at)}
                 </span>
               </div>
@@ -439,7 +457,7 @@ function PlanPanel({
             {planForm.date}
           </span>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 max-h-96 overflow-y-auto">
           <Timeline blocks={blocks} events={events} />
         </div>
       </div>
@@ -480,7 +498,7 @@ function PlanPanel({
           🤖 AIサマリー
         </h2>
         {llmSummary ? (
-          <div className="mt-4 space-y-4 text-sm text-slate-700">
+          <div className="mt-4 max-h-96 space-y-4 overflow-y-auto text-sm text-slate-700">
             <div className="rounded-xl border border-indigo-200 bg-white px-4 py-3">
               <div className="text-xs font-semibold text-indigo-500">サマリー</div>
               <p className="mt-2 whitespace-pre-wrap">{llmSummary.summary}</p>
@@ -787,7 +805,7 @@ function TaskList({
           </button>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">
         {tasks.length === 0 && (
           <p className="text-sm text-slate-500">
             まだタスクがありません。右上の「追加」ボタンから追加してください。
@@ -866,7 +884,7 @@ function EventList({
           </button>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">
         {events.length === 0 && (
           <p className="text-sm text-slate-500">
             まだ固定予定がありません。右上の「追加」ボタンから登録してください。
@@ -1078,7 +1096,7 @@ function RecurringScheduleList({
           </button>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">
         {schedules.length === 0 && (
           <p className="text-sm text-slate-500">
             まだ繰り返し予定がありません。右上の「追加」ボタンから追加してください。

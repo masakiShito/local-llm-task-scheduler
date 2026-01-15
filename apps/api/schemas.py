@@ -83,7 +83,7 @@ class WorkingHour(BaseModel):
 class Constraints(BaseModel):
     break_minutes: int = 10
     focus_max_minutes: int = 90
-    buffer_ratio: float = 0.1
+    buffer_ratio: float = 0.0
 
 
 class PlanGenerateRequest(BaseModel):
