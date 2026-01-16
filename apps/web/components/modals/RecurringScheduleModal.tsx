@@ -251,9 +251,9 @@ export function RecurringScheduleModal({ isOpen, onClose, onSave, schedule }: Re
               <Button
                 variant="primary"
                 type="submit"
-                disabled={isSubmitting}
+                loading={isSubmitting}
               >
-                {isSubmitting ? "保存中..." : schedule ? "更新" : "追加"}
+                {schedule ? "更新" : "追加"}
               </Button>
             </div>
           </form>

@@ -24,6 +24,7 @@ interface PlanPanelProps {
   blocks: PlanBlock[];
   tasks: Task[];
   onAddPlan: () => void;
+  isGenerating?: boolean;
 }
 
 export const PlanPanel: React.FC<PlanPanelProps> = ({
@@ -32,6 +33,7 @@ export const PlanPanel: React.FC<PlanPanelProps> = ({
   blocks,
   tasks,
   onAddPlan,
+  isGenerating = false,
 }) => {
   return (
     <Card>
@@ -41,7 +43,7 @@ export const PlanPanel: React.FC<PlanPanelProps> = ({
           <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
         }
         action={
-          <Button variant="primary" size="sm" onClick={onAddPlan}>
+          <Button variant="primary" size="sm" onClick={onAddPlan} loading={isGenerating}>
             + 計画を追加
           </Button>
         }
@@ -50,12 +52,12 @@ export const PlanPanel: React.FC<PlanPanelProps> = ({
       {/* Work date and hours */}
       <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-200">
         <div>
-          <div className="text-xs text-gray-500 mb-1">作業日</div>
-          <div className="text-sm font-medium text-gray-900">{date}</div>
+          <div className="text-sm text-gray-500 mb-1">作業日</div>
+          <div className="text-base font-medium text-gray-900">{date}</div>
         </div>
         <div>
-          <div className="text-xs text-gray-500 mb-1">時間割</div>
-          <div className="text-sm font-medium text-gray-900">{workingHours}</div>
+          <div className="text-sm text-gray-500 mb-1">時間割</div>
+          <div className="text-base font-medium text-gray-900">{workingHours}</div>
         </div>
       </div>
 
@@ -63,7 +65,7 @@ export const PlanPanel: React.FC<PlanPanelProps> = ({
       {blocks.length > 0 ? (
         <Timeline blocks={blocks} tasks={tasks} date={date} />
       ) : (
-        <div className="text-center py-8 text-gray-500 text-sm">
+        <div className="text-center py-8 text-gray-500 text-base">
           計画がありません。「+ 計画を追加」ボタンから作成してください。
         </div>
       )}

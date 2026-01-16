@@ -180,9 +180,9 @@ export function EventModal({ isOpen, onClose, onSave, defaultDate, event }: Even
               <Button
                 variant="primary"
                 type="submit"
-                disabled={isSubmitting}
+                loading={isSubmitting}
               >
-                {isSubmitting ? "保存中..." : event ? "更新" : "追加"}
+                {event ? "更新" : "追加"}
               </Button>
             </div>
           </form>

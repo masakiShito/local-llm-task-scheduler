@@ -99,6 +99,7 @@ export default function Home() {
   // Plan state
   const [currentDate] = useState(new Date().toISOString().slice(0, 10));
   const [planGenerated, setPlanGenerated] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
   // Modal state
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -243,6 +244,7 @@ export default function Home() {
 
   // Plan handlers
   const handleAddPlan = async () => {
+    setIsGeneratingPlan(true);
     try {
       const payload = await fetchJson<{ data: any }>("/plans/generate", {
         method: "POST",
@@ -264,6 +266,8 @@ export default function Home() {
       await loadPlanForDate(currentDate);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate plan");
+    } finally {
+      setIsGeneratingPlan(false);
     }
   };
 
@@ -283,12 +287,12 @@ export default function Home() {
   // Render fixed schedules content
   const renderFixedSchedulesContent = () => {
     if (events.length === 0) {
-      return <p className="text-xs text-gray-500">固定予定がありません</p>;
+      return <p className="text-sm text-gray-500">固定予定がありません</p>;
     }
     return (
       <div className="space-y-1">
         {events.map((event) => (
-          <div key={event.event_id} className="text-xs text-gray-700">
+          <div key={event.event_id} className="text-sm text-gray-700">
             {event.title}
           </div>
         ))}
@@ -299,12 +303,12 @@ export default function Home() {
   // Render recurring schedules content
   const renderRecurringSchedulesContent = () => {
     if (recurringSchedules.length === 0) {
-      return <p className="text-xs text-gray-500">繰り返し予定がありません</p>;
+      return <p className="text-sm text-gray-500">繰り返し予定がありません</p>;
     }
     return (
       <div className="space-y-1">
         {recurringSchedules.map((schedule) => (
-          <div key={schedule.recurring_schedule_id} className="text-xs text-gray-700">
+          <div key={schedule.recurring_schedule_id} className="text-sm text-gray-700">
             {schedule.title}
           </div>
         ))}
@@ -344,6 +348,7 @@ export default function Home() {
           blocks={blocks}
           tasks={tasks}
           onAddPlan={handleAddPlan}
+          isGenerating={isGeneratingPlan}
         />
       }
       rightColumn={
