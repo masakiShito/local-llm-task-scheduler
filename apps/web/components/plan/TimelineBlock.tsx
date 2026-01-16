@@ -6,6 +6,10 @@ interface PlanBlock {
   end_at: string;
   kind: string;
   task_title: string | null;
+  meta?: {
+    is_fixed_time?: boolean;
+    [key: string]: any;
+  };
 }
 
 interface TimelineBlockProps {
@@ -18,6 +22,9 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
     const date = new Date(dateString);
     return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
+
+  // Check if this is a fixed time task
+  const isFixedTime = block.meta?.is_fixed_time === true;
 
   // Check if this is a buffer block (work block without task title)
   const isBuffer = block.kind === 'work' && !block.task_title;
@@ -43,6 +50,17 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
       };
     }
 
+    // Fixed time task styling
+    if (isFixedTime) {
+      return {
+        bg: isCompleted ? 'bg-red-100' : 'bg-red-50',
+        border: 'border-red-400',
+        text: 'text-red-900',
+        label: 'bg-red-200 text-red-800',
+        icon: '🔒',
+      };
+    }
+
     if (isCompleted) {
       return {
         bg: 'bg-green-100',
@@ -53,7 +71,7 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
       };
     }
 
-    // Default colors for work blocks
+    // Default colors for regular work blocks
     return {
       bg: 'bg-blue-50',
       border: 'border-blue-400',
@@ -74,6 +92,8 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
   };
 
   const getBlockLabel = () => {
+    if (isFixedTime && isCompleted) return '🔒 完了';
+    if (isFixedTime) return '🔒 固定予定';
     if (isCompleted) return '✓ 完了';
     if (block.kind === 'break') return '休憩';
     if (isBuffer) return 'バッファ';
@@ -81,7 +101,9 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
   };
 
   return (
-    <div className={`${colors.bg} ${colors.border} border-l-4 rounded-r-lg p-3 mb-2 transition-all hover:shadow-md`}>
+    <div className={`${colors.bg} ${colors.border} border-l-4 rounded-r-lg p-3 mb-2 transition-all hover:shadow-md ${
+      isFixedTime ? 'border-l-[6px]' : ''
+    }`}>
       <div className="flex items-start justify-between mb-2">
         <div className={`font-medium ${colors.text} flex items-center gap-2`}>
           <span className="text-lg">{colors.icon}</span>
@@ -99,6 +121,11 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
           {startTime} - {endTime}
         </div>
       </div>
+      {isFixedTime && (
+        <div className="mt-2 text-xs text-red-700 italic">
+          ※ この予定は固定されています
+        </div>
+      )}
     </div>
   );
 };

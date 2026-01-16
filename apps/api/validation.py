@@ -54,6 +54,35 @@ def validate_task_request(request: TaskUpdateRequest) -> None:
             field_errors.append(
                 FieldError("min_block_minutes", "E-0400", "5〜180で入力してください")
             )
+
+    # Validate fixed time task fields
+    if request.is_fixed_time is True:
+        if not request.fixed_start_at:
+            field_errors.append(
+                FieldError("fixed_start_at", "E-0400", "固定時間タスクには開始時刻が必要です")
+            )
+        if not request.fixed_end_at:
+            field_errors.append(
+                FieldError("fixed_end_at", "E-0400", "固定時間タスクには終了時刻が必要です")
+            )
+        if request.fixed_start_at and request.fixed_end_at:
+            if request.fixed_start_at >= request.fixed_end_at:
+                field_errors.append(
+                    FieldError("fixed_start_at", "E-0400", "開始時刻を確認してください")
+                )
+                field_errors.append(
+                    FieldError("fixed_end_at", "E-0400", "終了時刻を確認してください")
+                )
+    elif request.is_fixed_time is False:
+        if request.fixed_start_at is not None:
+            field_errors.append(
+                FieldError("fixed_start_at", "E-0400", "通常タスクには開始時刻を指定できません")
+            )
+        if request.fixed_end_at is not None:
+            field_errors.append(
+                FieldError("fixed_end_at", "E-0400", "通常タスクには終了時刻を指定できません")
+            )
+
     if field_errors:
         raise ApiError(
             status_code=400,

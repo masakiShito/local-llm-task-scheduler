@@ -15,39 +15,45 @@ class ScheduleResult:
     warnings: list[WarningItem]
 
 
+def _subtract_fixed_blocks(
+    slots: list[tuple[datetime, datetime]],
+    fixed_blocks: list[tuple[datetime, datetime]],
+) -> list[tuple[datetime, datetime]]:
+    """Subtract fixed time blocks from available slots."""
+    remaining = slots
+    for block_start, block_end in fixed_blocks:
+        # Normalize block times to match the timezone of slots
+        if slots and slots[0][0].tzinfo is not None:
+            tzinfo = slots[0][0].tzinfo
+            if block_start.tzinfo is None:
+                # If naive, assume it's in the target timezone
+                block_start = block_start.replace(tzinfo=tzinfo)
+                block_end = block_end.replace(tzinfo=tzinfo)
+            else:
+                # If aware, convert to target timezone
+                block_start = block_start.astimezone(tzinfo)
+                block_end = block_end.astimezone(tzinfo)
+
+        updated: list[tuple[datetime, datetime]] = []
+        for slot_start, slot_end in remaining:
+            if block_end <= slot_start or block_start >= slot_end:
+                updated.append((slot_start, slot_end))
+                continue
+            if block_start > slot_start:
+                updated.append((slot_start, block_start))
+            if block_end < slot_end:
+                updated.append((block_end, slot_end))
+        remaining = updated
+    return remaining
+
+
 def _subtract_events(
     slots: list[tuple[datetime, datetime]],
     events: Iterable[Event],
 ) -> list[tuple[datetime, datetime]]:
-    remaining = slots
-    for event in events:
-        # Normalize event times to match the timezone of slots
-        if slots and slots[0][0].tzinfo is not None:
-            tzinfo = slots[0][0].tzinfo
-            if event.start_at.tzinfo is None:
-                # If naive, assume it's in the target timezone
-                event_start = event.start_at.replace(tzinfo=tzinfo)
-                event_end = event.end_at.replace(tzinfo=tzinfo)
-            else:
-                # If aware, convert to target timezone
-                event_start = event.start_at.astimezone(tzinfo)
-                event_end = event.end_at.astimezone(tzinfo)
-        else:
-            # If slots are naive, use event times as-is
-            event_start = event.start_at
-            event_end = event.end_at
-
-        updated: list[tuple[datetime, datetime]] = []
-        for slot_start, slot_end in remaining:
-            if event_end <= slot_start or event_start >= slot_end:
-                updated.append((slot_start, slot_end))
-                continue
-            if event_start > slot_start:
-                updated.append((slot_start, event_start))
-            if event_end < slot_end:
-                updated.append((event_end, slot_end))
-        remaining = updated
-    return remaining
+    """Subtract events from available slots."""
+    fixed_blocks = [(event.start_at, event.end_at) for event in events]
+    return _subtract_fixed_blocks(slots, fixed_blocks)
 
 
 def _apply_buffer(
@@ -102,12 +108,37 @@ def _apply_buffer(
     return remaining_slots, buffer_blocks, buffer_shortage
 
 
+def _create_fixed_task_blocks(
+    fixed_tasks: Iterable[Task],
+    plan_id: str,
+) -> list[PlanBlock]:
+    """Create plan blocks for fixed time tasks."""
+    blocks: list[PlanBlock] = []
+    for task in fixed_tasks:
+        if task.is_fixed_time and task.fixed_start_at and task.fixed_end_at:
+            blocks.append(
+                PlanBlock(
+                    block_id="",
+                    plan_id=plan_id,
+                    start_at=task.fixed_start_at,
+                    end_at=task.fixed_end_at,
+                    kind="work",
+                    task_id=task.task_id,
+                    task_title=task.title,
+                    meta={"is_fixed_time": True},
+                )
+            )
+    return blocks
+
+
 def build_free_slots(
     target_date: date,
     timezone: str,
     working_hours: list[tuple[time, time]],
     events: Iterable[Event],
+    fixed_tasks: Iterable[Task] | None = None,
 ) -> list[tuple[datetime, datetime]]:
+    """Build free time slots by subtracting events and fixed time tasks from working hours."""
     tzinfo = ZoneInfo(timezone)
     slots = [
         (
@@ -116,7 +147,19 @@ def build_free_slots(
         )
         for slot_start, slot_end in working_hours
     ]
-    return _subtract_events(slots, events)
+    # Subtract events
+    slots = _subtract_events(slots, events)
+
+    # Subtract fixed time tasks
+    if fixed_tasks:
+        fixed_blocks = [
+            (task.fixed_start_at, task.fixed_end_at)
+            for task in fixed_tasks
+            if task.is_fixed_time and task.fixed_start_at and task.fixed_end_at
+        ]
+        slots = _subtract_fixed_blocks(slots, fixed_blocks)
+
+    return slots
 
 
 def schedule(
@@ -129,6 +172,15 @@ def schedule(
     overflow: list[OverflowItem] = []
     warnings: list[WarningItem] = []
 
+    # Separate fixed time tasks from regular tasks
+    all_tasks = list(tasks)
+    fixed_tasks = [task for task in all_tasks if task.is_fixed_time]
+    regular_tasks = [task for task in all_tasks if not task.is_fixed_time]
+
+    # Create blocks for fixed time tasks
+    fixed_blocks = _create_fixed_task_blocks(fixed_tasks, plan_id)
+    blocks.extend(fixed_blocks)
+
     buffer_slots, buffer_blocks, buffer_shortage = _apply_buffer(
         free_slots, constraints.buffer_ratio
     )
@@ -138,8 +190,9 @@ def schedule(
         )
 
     working_slots = buffer_slots
+    # Only schedule regular tasks (non-fixed)
     tasks_sorted = sorted(
-        tasks,
+        regular_tasks,
         key=lambda task: (
             -task.priority,
             task.due_at or datetime.max.replace(tzinfo=task.created_at.tzinfo),
