@@ -25,6 +25,10 @@ type Task = {
   available_to?: string;
   splittable: boolean;
   min_block_minutes?: number;
+  // Fixed time task fields
+  is_fixed_time: boolean;
+  fixed_start_at?: string;
+  fixed_end_at?: string;
 };
 
 type EventItem = {
@@ -51,6 +55,10 @@ type PlanBlock = {
   kind: string;
   task_title: string | null;
   task_id: string | null;
+  meta?: {
+    is_fixed_time?: boolean;
+    [key: string]: any;
+  };
 };
 
 type LlmSummaryOverflowPlan = {

@@ -18,6 +18,10 @@ class TaskBase(BaseModel):
     splittable: bool = True
     min_block_minutes: int | None = None
     tags: list[str] | None = None
+    # Fixed time task fields
+    is_fixed_time: bool = False
+    fixed_start_at: datetime | None = None
+    fixed_end_at: datetime | None = None
 
 
 class TaskCreateRequest(TaskBase):
@@ -37,6 +41,10 @@ class TaskUpdateRequest(BaseModel):
     splittable: bool | None = None
     min_block_minutes: int | None = None
     tags: list[str] | None = None
+    # Fixed time task fields
+    is_fixed_time: bool | None = None
+    fixed_start_at: datetime | None = None
+    fixed_end_at: datetime | None = None
 
 
 class Task(TaskBase):

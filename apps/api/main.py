@@ -433,14 +433,19 @@ def generate_plan(request: PlanGenerateRequest) -> dict:
     # Combine fixed events and generated recurring events
     all_events = target_events + generated_events
 
+    # Get open tasks and separate fixed time tasks
+    tasks = [task for task in STORE.tasks.values() if task.status == "open"]
+    fixed_tasks = [task for task in tasks if task.is_fixed_time]
+
+    # Build free slots considering both events and fixed time tasks
     free_slots = build_free_slots(
         request.date,
         request.timezone,
         working_slots,
         all_events,
+        fixed_tasks,
     )
 
-    tasks = [task for task in STORE.tasks.values() if task.status == "open"]
     schedule_result = schedule(tasks, free_slots, constraints, plan_id)
 
     warnings = schedule_result.warnings[:]
