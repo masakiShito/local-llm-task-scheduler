@@ -46,10 +46,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       </button>
 
       <div className="flex-1">
-        <div className={`text-sm ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+        <div className={`text-base ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
           {task.title}
         </div>
-        <div className="text-xs text-gray-500 mt-0.5">
+        <div className="text-sm text-gray-500 mt-0.5">
           {timeDisplay}
         </div>
       </div>
@@ -60,7 +60,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           {onEdit && (
             <button
               onClick={() => onEdit(task)}
-              className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
+              className="px-2 py-1 text-sm text-gray-600 hover:text-gray-900"
             >
               編集
             </button>
@@ -72,7 +72,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   onDelete(task.task_id);
                 }
               }}
-              className="px-2 py-1 text-xs text-red-600 hover:text-red-900"
+              className="px-2 py-1 text-sm text-red-600 hover:text-red-900"
             >
               削除
             </button>

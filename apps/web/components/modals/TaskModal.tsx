@@ -270,9 +270,9 @@ export function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
               <Button
                 variant="primary"
                 type="submit"
-                disabled={isSubmitting}
+                loading={isSubmitting}
               >
-                {isSubmitting ? "保存中..." : task ? "更新" : "追加"}
+                {task ? "更新" : "追加"}
               </Button>
             </div>
           </form>
