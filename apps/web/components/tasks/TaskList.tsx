@@ -10,6 +10,7 @@ interface Task {
   status: string;
   priority: number;
   estimate_minutes: number;
+  due_at?: string;
 }
 
 interface TaskListProps {
@@ -31,9 +32,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const filteredTasks = showCompleted
-    ? tasks
-    : tasks.filter((task) => task.status !== 'done');
+  const incompleteTasks = tasks.filter((task) => task.status !== 'done');
+  const completedTasks = tasks.filter((task) => task.status === 'done');
 
   return (
     <Card>
@@ -43,30 +43,63 @@ export const TaskList: React.FC<TaskListProps> = ({
           <div className="w-1 h-6 bg-indigo-600 rounded-full"></div>
         }
         action={
-          <ToggleSwitch
-            checked={showCompleted}
-            onChange={onToggleShowCompleted}
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">完了を表示</span>
+            <ToggleSwitch
+              checked={showCompleted}
+              onChange={onToggleShowCompleted}
+            />
+          </div>
         }
       />
 
-      <div className="space-y-1">
-        {filteredTasks.length === 0 && (
+      {/* Incomplete tasks section */}
+      <div>
+        {incompleteTasks.length === 0 && completedTasks.length === 0 && (
           <p className="text-sm text-gray-500 py-4 text-center">
-            {showCompleted ? 'タスクがありません' : 'タスクがありません'}
+            タスクがありません
           </p>
         )}
 
-        {filteredTasks.map((task) => (
-          <TaskItem
-            key={task.task_id}
-            task={task}
-            onToggleComplete={onToggleComplete}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        ))}
+        {incompleteTasks.length > 0 && (
+          <>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2 mt-2">
+              未完了 ({incompleteTasks.length})
+            </h3>
+            <div className="space-y-1 border-l-2 border-indigo-200 pl-3">
+              {incompleteTasks.map((task) => (
+                <TaskItem
+                  key={task.task_id}
+                  task={task}
+                  onToggleComplete={onToggleComplete}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Completed tasks section */}
+      {showCompleted && completedTasks.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            完了済み ({completedTasks.length})
+          </h3>
+          <div className="space-y-1 border-l-2 border-green-200 pl-3">
+            {completedTasks.map((task) => (
+              <TaskItem
+                key={task.task_id}
+                task={task}
+                onToggleComplete={onToggleComplete}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <button
         onClick={onAdd}

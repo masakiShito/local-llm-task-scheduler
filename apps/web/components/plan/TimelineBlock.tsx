@@ -19,6 +19,9 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
     return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 
+  // Check if this is a buffer block (work block without task title)
+  const isBuffer = block.kind === 'work' && !block.task_title;
+
   const getBlockColor = () => {
     if (block.kind === 'break') {
       return {
@@ -26,6 +29,17 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
         border: 'border-gray-300',
         text: 'text-gray-700',
         label: 'bg-gray-200 text-gray-700',
+        icon: '☕',
+      };
+    }
+
+    if (isBuffer) {
+      return {
+        bg: 'bg-purple-50',
+        border: 'border-purple-300',
+        text: 'text-purple-800',
+        label: 'bg-purple-100 text-purple-700',
+        icon: '⏸️',
       };
     }
 
@@ -35,15 +49,17 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
         border: 'border-green-400',
         text: 'text-green-900',
         label: 'bg-green-200 text-green-800',
+        icon: '✓',
       };
     }
 
     // Default colors for work blocks
     return {
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-400',
-      text: 'text-yellow-900',
-      label: 'bg-yellow-200 text-yellow-800',
+      bg: 'bg-blue-50',
+      border: 'border-blue-400',
+      text: 'text-blue-900',
+      label: 'bg-blue-200 text-blue-800',
+      icon: '📝',
     };
   };
 
@@ -51,30 +67,37 @@ export const TimelineBlock: React.FC<TimelineBlockProps> = ({ block, isCompleted
   const startTime = formatTime(block.start_at);
   const endTime = formatTime(block.end_at);
 
+  const getBlockTitle = () => {
+    if (block.task_title) return block.task_title;
+    if (block.kind === 'break') return 'ランチ休憩';
+    return 'バッファ時間';
+  };
+
+  const getBlockLabel = () => {
+    if (isCompleted) return '✓ 完了';
+    if (block.kind === 'break') return '休憩';
+    if (isBuffer) return 'バッファ';
+    return '予定';
+  };
+
   return (
-    <div className={`${colors.bg} ${colors.border} border-l-4 rounded-r-lg p-3 mb-2`}>
-      <div className={`font-medium ${colors.text} mb-1`}>
-        {block.task_title || (block.kind === 'break' ? 'ランチ休憩' : 'バッファ時間')}
+    <div className={`${colors.bg} ${colors.border} border-l-4 rounded-r-lg p-3 mb-2 transition-all hover:shadow-md`}>
+      <div className="flex items-start justify-between mb-2">
+        <div className={`font-medium ${colors.text} flex items-center gap-2`}>
+          <span className="text-lg">{colors.icon}</span>
+          <span>{getBlockTitle()}</span>
+        </div>
+        <span className={`text-xs px-2 py-1 rounded font-medium ${colors.label}`}>
+          {getBlockLabel()}
+        </span>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600">
+      <div className="flex items-center gap-2">
+        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div className="text-sm text-gray-600 font-medium">
           {startTime} - {endTime}
         </div>
-        {block.kind === 'break' && (
-          <span className={`text-xs px-2 py-1 rounded ${colors.label}`}>
-            休憩
-          </span>
-        )}
-        {isCompleted && (
-          <span className={`text-xs px-2 py-1 rounded ${colors.label}`}>
-            完了
-          </span>
-        )}
-        {!isCompleted && block.kind === 'work' && (
-          <span className={`text-xs px-2 py-1 rounded ${colors.label}`}>
-            予定
-          </span>
-        )}
       </div>
     </div>
   );

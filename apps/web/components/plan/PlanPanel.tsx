@@ -65,8 +65,14 @@ export const PlanPanel: React.FC<PlanPanelProps> = ({
       {blocks.length > 0 ? (
         <Timeline blocks={blocks} tasks={tasks} date={date} />
       ) : (
-        <div className="text-center py-8 text-gray-500 text-base">
-          計画がありません。「+ 計画を追加」ボタンから作成してください。
+        <div className="text-center py-12">
+          <svg className="mx-auto w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-gray-600 text-base font-medium mb-2">タイムラインがまだありません</p>
+          <p className="text-gray-500 text-sm">
+            右上の「+ 計画を追加」ボタンから計画を生成してください
+          </p>
         </div>
       )}
     </Card>
