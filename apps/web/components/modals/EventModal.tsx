@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/common/Button";
+import { datetimeLocalToISO, isoToDatetimeLocal } from "@/utils/datetime";
 
 type EventModalProps = {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export function EventModal({ isOpen, onClose, onSave, defaultDate, event }: Even
     }
     const now = new Date();
     now.setMinutes(0, 0, 0);
-    return now.toISOString().slice(0, 16);
+    return isoToDatetimeLocal(now.toISOString());
   };
 
   const getDefaultEndTime = () => {
@@ -41,7 +42,7 @@ export function EventModal({ isOpen, onClose, onSave, defaultDate, event }: Even
     const now = new Date();
     now.setHours(now.getHours() + 1);
     now.setMinutes(0, 0, 0);
-    return now.toISOString().slice(0, 16);
+    return isoToDatetimeLocal(now.toISOString());
   };
 
   const [formData, setFormData] = useState<EventFormData>({
@@ -58,8 +59,8 @@ export function EventModal({ isOpen, onClose, onSave, defaultDate, event }: Even
       setFormData({
         title: event.title,
         description: event.description || "",
-        start_at: new Date(event.start_at).toISOString().slice(0, 16),
-        end_at: new Date(event.end_at).toISOString().slice(0, 16),
+        start_at: isoToDatetimeLocal(event.start_at),
+        end_at: isoToDatetimeLocal(event.end_at),
       });
     } else if (isOpen) {
       setFormData({
@@ -77,11 +78,12 @@ export function EventModal({ isOpen, onClose, onSave, defaultDate, event }: Even
     setIsSubmitting(true);
 
     try {
+      // Convert datetime-local format to ISO8601 with timezone
       const submitData: EventFormData = {
         title: formData.title,
         description: formData.description || undefined,
-        start_at: new Date(formData.start_at).toISOString(),
-        end_at: new Date(formData.end_at).toISOString(),
+        start_at: datetimeLocalToISO(formData.start_at),
+        end_at: datetimeLocalToISO(formData.end_at),
       };
 
       // Validate dates
