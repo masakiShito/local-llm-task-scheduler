@@ -2,116 +2,171 @@ import React from 'react';
 import { Card } from '../common/Card';
 import { SectionHeader } from '../common/SectionHeader';
 
-interface LlmSummaryOverflowPlan {
-  taskTitle: string;
-  suggestions: string[];
+interface PlanBlock {
+  block_id: string;
+  start_at: string;
+  end_at: string;
+  kind: string;
+  task_title: string | null;
+  task_id: string | null;
 }
 
-interface LlmSummary {
-  summary: string;
-  why_this_order: string[];
-  warnings: string[];
-  overflow_plan: LlmSummaryOverflowPlan[];
+interface Task {
+  task_id: string;
+  title: string;
+  status: string;
+  priority: number;
+  estimate_minutes: number;
+  due_at?: string;
 }
 
 interface AISummaryProps {
-  summary: LlmSummary | null;
+  blocks: PlanBlock[];
+  tasks: Task[];
 }
 
-export const AISummary: React.FC<AISummaryProps> = ({ summary }) => {
-  if (!summary) {
+// Helper function to calculate duration in minutes
+const durationMinutes = (startAt: string, endAt: string): number => {
+  const start = new Date(startAt);
+  const end = new Date(endAt);
+  return (end.getTime() - start.getTime()) / (1000 * 60);
+};
+
+// Helper function to format time
+const formatTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+export const AISummary: React.FC<AISummaryProps> = ({ blocks, tasks }) => {
+  if (blocks.length === 0) {
     return (
-      <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
         <SectionHeader
-          title="AIサマリー"
+          title="📊 計画サマリー"
           icon={
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           }
         />
         <p className="text-sm text-gray-600 mt-2">
-          計画を生成するとAIがサマリーを表示します。
+          計画を生成するとサマリーが表示されます。
         </p>
       </Card>
     );
   }
 
+  // Calculate task status
+  const workBlocks = blocks.filter(b => b.kind === 'work');
+  const totalMinutes = workBlocks.reduce((sum, b) => {
+    const duration = durationMinutes(b.start_at, b.end_at);
+    return sum + duration;
+  }, 0);
+
+  const lastWorkBlock = workBlocks[workBlocks.length - 1];
+  const endTime = lastWorkBlock ? formatTime(lastWorkBlock.end_at) : '';
+
+  // Get overflow tasks (tasks that couldn't fit in the schedule)
+  const scheduledTaskIds = new Set(blocks.map(b => b.task_id).filter(id => id !== null));
+  const overflows = tasks.filter(t => t.status !== 'done' && !scheduledTaskIds.has(t.task_id));
+
+  // Generate attention points
+  const attentionPoints: string[] = [];
+
+  // Check for long duration tasks (90+ minutes)
+  workBlocks.forEach(b => {
+    const duration = durationMinutes(b.start_at, b.end_at);
+    if (duration >= 90 && b.task_title) {
+      attentionPoints.push(`「${b.task_title}」は ${Math.round(duration)} 分の長時間作業です。適宜休憩を取ることをお勧めします。`);
+    }
+  });
+
+  // Check for high priority overflow tasks
+  if (overflows.length > 0) {
+    const highPriorityOverflows = overflows.filter(t => t.priority >= 4);
+    if (highPriorityOverflows.length > 0) {
+      attentionPoints.push(`優先度の高いタスクが ${highPriorityOverflows.length} 件、時間内に収まりませんでした。明日以降の予定を調整してください。`);
+    }
+  }
+
+  // Check for tasks with near deadlines
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const nearDeadlineTasks = workBlocks
+    .filter(b => {
+      if (!b.task_id) return false;
+      const task = tasks.find(t => t.task_id === b.task_id);
+      if (!task?.due_at) return false;
+      const dueDate = new Date(task.due_at);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate.getTime() <= tomorrow.getTime();
+    })
+    .map(b => {
+      const task = tasks.find(t => t.task_id === b.task_id);
+      return task?.title || b.task_title;
+    })
+    .filter(Boolean);
+
+  if (nearDeadlineTasks.length > 0) {
+    attentionPoints.push(`締め切りが近いタスクが ${nearDeadlineTasks.length} 件あります。優先的に取り組みましょう。`);
+  }
+
+  // Default message if no attention points
+  if (attentionPoints.length === 0) {
+    attentionPoints.push('特に注意すべき点はありません。計画通りに進めましょう。');
+  }
+
   return (
-    <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
       <SectionHeader
-        title="AIサマリー"
+        title="📊 今日の計画サマリー"
         icon={
-          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         }
       />
 
-      {/* Summary */}
+      {/* Task Status */}
       <div className="mt-4">
-        <h3 className="text-sm font-bold text-purple-900 mb-2">サマリー</h3>
-        <p className="text-sm text-gray-700 leading-relaxed">{summary.summary}</p>
+        <h4 className="text-sm font-semibold text-slate-700 mb-2">タスク状況</h4>
+        <p className="text-sm text-slate-600 leading-relaxed">
+          本日は {workBlocks.length} 件のタスクを割り当てました。総作業時間は {Math.round(totalMinutes)} 分で、{endTime} 頃に完了予定です。
+          {overflows.length > 0 && ` ${overflows.length} 件のタスクが時間内に収まりませんでした。`}
+        </p>
       </div>
 
-      {/* Why this order */}
-      {summary.why_this_order.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-sm font-bold text-purple-900 mb-2">開始の準備</h3>
-          <ul className="space-y-1">
-            {summary.why_this_order.map((reason, index) => (
-              <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5">•</span>
-                <span>{reason}</span>
+      {/* Attention Points */}
+      <div className="mt-4">
+        <h4 className="text-sm font-semibold text-slate-700 mb-2">⚠️ 注意点</h4>
+        <ul className="list-disc list-inside space-y-1 text-sm text-slate-600">
+          {attentionPoints.map((point, idx) => (
+            <li key={idx}>{point}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Overflow tasks detail (if any) */}
+      {overflows.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-blue-200">
+          <h4 className="text-sm font-semibold text-slate-700 mb-2">収まらなかったタスク</h4>
+          <ul className="text-xs text-slate-600 space-y-1">
+            {overflows.slice(0, 5).map(task => (
+              <li key={task.task_id} className="flex items-start gap-2">
+                <span className="text-blue-400 mt-0.5">•</span>
+                <span>{task.title} ({task.estimate_minutes}分)</span>
               </li>
             ))}
+            {overflows.length > 5 && (
+              <li className="text-blue-500 font-medium">...他 {overflows.length - 5} 件</li>
+            )}
           </ul>
         </div>
       )}
-
-      {/* Warnings */}
-      {summary.warnings.length > 0 && (
-        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          <h3 className="text-sm font-bold text-yellow-900 mb-2">AI提案事項</h3>
-          <ul className="space-y-1">
-            {summary.warnings.map((warning, index) => (
-              <li key={index} className="text-sm text-yellow-800 flex items-start gap-2">
-                <span className="text-yellow-600 mt-0.5">•</span>
-                <span>{warning}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Overflow plan */}
-      {summary.overflow_plan.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-sm font-bold text-purple-900 mb-2">突発的な案件への対応</h3>
-          <div className="space-y-2">
-            {summary.overflow_plan.map((plan, index) => (
-              <div key={index} className="text-sm">
-                <div className="font-medium text-gray-900">{plan.taskTitle}</div>
-                <ul className="ml-4 mt-1 space-y-0.5">
-                  {plan.suggestions.map((suggestion, sIndex) => (
-                    <li key={sIndex} className="text-gray-700 flex items-start gap-2">
-                      <span className="text-purple-400 mt-0.5">-</span>
-                      <span>{suggestion}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Overview link */}
-      <div className="mt-4 pt-4 border-t border-purple-200">
-        <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-          オーバーフロー一覧
-        </button>
-      </div>
     </Card>
   );
 };

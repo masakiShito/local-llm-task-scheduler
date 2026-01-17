@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { TaskList } from "@/components/tasks/TaskList";
-import { ScheduleSection } from "@/components/schedule/ScheduleSection";
 import { PlanPanel } from "@/components/plan/PlanPanel";
 import { AISummary } from "@/components/ai/AISummary";
-import { TaskModal, EventModal, RecurringScheduleModal } from "@/components/modals";
-import type { TaskFormData, EventFormData, RecurringScheduleFormData } from "@/components/modals";
+import { TaskModal } from "@/components/modals";
+import type { TaskFormData } from "@/components/modals";
 
 const apiBase =
   process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -31,23 +30,6 @@ type Task = {
   fixed_end_at?: string;
 };
 
-type EventItem = {
-  event_id: string;
-  title: string;
-  start_at: string;
-  end_at: string;
-  description?: string;
-};
-
-type RecurringSchedule = {
-  recurring_schedule_id: string;
-  title: string;
-  description?: string;
-  start_time: string;
-  end_time: string;
-  days_of_week: number[];
-};
-
 type PlanBlock = {
   block_id: string;
   start_at: string;
@@ -59,18 +41,6 @@ type PlanBlock = {
     is_fixed_time?: boolean;
     [key: string]: any;
   };
-};
-
-type LlmSummaryOverflowPlan = {
-  taskTitle: string;
-  suggestions: string[];
-};
-
-type LlmSummary = {
-  summary: string;
-  why_this_order: string[];
-  warnings: string[];
-  overflow_plan: LlmSummaryOverflowPlan[];
 };
 
 async function fetchJson<T>(
@@ -93,16 +63,11 @@ async function fetchJson<T>(
 export default function Home() {
   // State
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
-  const [llmSummary, setLlmSummary] = useState<LlmSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // UI State
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
-  const [showFixedSchedules, setShowFixedSchedules] = useState(false);
-  const [showRecurringSchedules, setShowRecurringSchedules] = useState(false);
 
   // Plan state
   const [currentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -111,8 +76,6 @@ export default function Home() {
 
   // Modal state
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [isRecurringScheduleModalOpen, setIsRecurringScheduleModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
   // Fetch data functions
@@ -122,28 +85,6 @@ export default function Home() {
       setTasks(payload.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch tasks");
-    }
-  }, []);
-
-  const refreshEvents = useCallback(async () => {
-    try {
-      const payload = await fetchJson<{ data: EventItem[] }>(
-        `/events?date=${currentDate}`
-      );
-      setEvents(payload.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch events");
-    }
-  }, [currentDate]);
-
-  const refreshRecurringSchedules = useCallback(async () => {
-    try {
-      const payload = await fetchJson<{ data: RecurringSchedule[] }>(
-        "/recurring-schedules"
-      );
-      setRecurringSchedules(payload.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch schedules");
     }
   }, []);
 
@@ -159,16 +100,9 @@ export default function Home() {
           `/plans/${plan.plan_id}/blocks`
         );
         setBlocks(blocksPayload.data);
-
-        // Get plan details for LLM summary
-        const planDetails = await fetchJson<{ data: any }>(
-          `/plans/${plan.plan_id}`
-        );
-        setLlmSummary(planDetails.data.summary || null);
         setPlanGenerated(true);
       } else {
         setBlocks([]);
-        setLlmSummary(null);
         setPlanGenerated(false);
       }
     } catch (err) {
@@ -217,30 +151,6 @@ export default function Home() {
     await refreshTasks();
   };
 
-  const handleAddEvent = () => {
-    setIsEventModalOpen(true);
-  };
-
-  const handleSaveEvent = async (eventData: EventFormData) => {
-    await fetchJson("/events", {
-      method: "POST",
-      body: JSON.stringify(eventData),
-    });
-    await refreshEvents();
-  };
-
-  const handleAddRecurringSchedule = () => {
-    setIsRecurringScheduleModalOpen(true);
-  };
-
-  const handleSaveRecurringSchedule = async (scheduleData: RecurringScheduleFormData) => {
-    await fetchJson("/recurring-schedules", {
-      method: "POST",
-      body: JSON.stringify(scheduleData),
-    });
-    await refreshRecurringSchedules();
-  };
-
   const handleDeleteTask = async (taskId: string) => {
     try {
       await fetchJson(`/tasks/${taskId}`, { method: "DELETE" });
@@ -282,72 +192,26 @@ export default function Home() {
   // Initial data load
   useEffect(() => {
     refreshTasks();
-    refreshEvents();
-    refreshRecurringSchedules();
     loadPlanForDate(currentDate);
-  }, [refreshTasks, refreshEvents, refreshRecurringSchedules, loadPlanForDate, currentDate]);
+  }, [refreshTasks, loadPlanForDate, currentDate]);
 
   // Format working hours for display
   const formatWorkingHours = () => {
     return "09:00 - 12:00 / 13:00 - 18:00";
   };
 
-  // Render fixed schedules content
-  const renderFixedSchedulesContent = () => {
-    if (events.length === 0) {
-      return <p className="text-sm text-gray-500">固定予定がありません</p>;
-    }
-    return (
-      <div className="space-y-1">
-        {events.map((event) => (
-          <div key={event.event_id} className="text-sm text-gray-700">
-            {event.title}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // Render recurring schedules content
-  const renderRecurringSchedulesContent = () => {
-    if (recurringSchedules.length === 0) {
-      return <p className="text-sm text-gray-500">繰り返し予定がありません</p>;
-    }
-    return (
-      <div className="space-y-1">
-        {recurringSchedules.map((schedule) => (
-          <div key={schedule.recurring_schedule_id} className="text-sm text-gray-700">
-            {schedule.title}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   return (
     <DashboardLayout
       leftColumn={
-        <>
-          <TaskList
-            tasks={tasks}
-            showCompleted={showCompletedTasks}
-            onToggleShowCompleted={setShowCompletedTasks}
-            onToggleComplete={handleToggleTaskComplete}
-            onAdd={handleAddTask}
-            onEdit={handleEditTask}
-            onDelete={handleDeleteTask}
-          />
-          <ScheduleSection
-            showFixedSchedules={showFixedSchedules}
-            onToggleShowFixedSchedules={setShowFixedSchedules}
-            fixedSchedulesContent={renderFixedSchedulesContent()}
-            onAddFixedSchedule={handleAddEvent}
-            showRecurringSchedules={showRecurringSchedules}
-            onToggleShowRecurringSchedules={setShowRecurringSchedules}
-            recurringSchedulesContent={renderRecurringSchedulesContent()}
-            onAddRecurringSchedule={handleAddRecurringSchedule}
-          />
-        </>
+        <TaskList
+          tasks={tasks}
+          showCompleted={showCompletedTasks}
+          onToggleShowCompleted={setShowCompletedTasks}
+          onToggleComplete={handleToggleTaskComplete}
+          onAdd={handleAddTask}
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+        />
       }
       centerColumn={
         <PlanPanel
@@ -360,7 +224,7 @@ export default function Home() {
         />
       }
       rightColumn={
-        <AISummary summary={llmSummary} />
+        <AISummary blocks={blocks} tasks={tasks} />
       }
     >
       <TaskModal
@@ -368,17 +232,6 @@ export default function Home() {
         onClose={() => setIsTaskModalOpen(false)}
         onSave={handleSaveTask}
         task={editingTask}
-      />
-      <EventModal
-        isOpen={isEventModalOpen}
-        onClose={() => setIsEventModalOpen(false)}
-        onSave={handleSaveEvent}
-        defaultDate={currentDate}
-      />
-      <RecurringScheduleModal
-        isOpen={isRecurringScheduleModalOpen}
-        onClose={() => setIsRecurringScheduleModalOpen(false)}
-        onSave={handleSaveRecurringSchedule}
       />
     </DashboardLayout>
   );
