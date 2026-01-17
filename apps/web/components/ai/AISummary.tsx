@@ -75,19 +75,42 @@ export const AISummary: React.FC<AISummaryProps> = ({ blocks, tasks }) => {
   const attentionPoints: string[] = [];
 
   // Check for long duration tasks (90+ minutes)
-  workBlocks.forEach(b => {
+  const longTasks = workBlocks.filter(b => {
     const duration = durationMinutes(b.start_at, b.end_at);
-    if (duration >= 90 && b.task_title) {
-      attentionPoints.push(`「${b.task_title}」は ${Math.round(duration)} 分の長時間作業です。適宜休憩を取ることをお勧めします。`);
-    }
+    return duration >= 90;
   });
+
+  if (longTasks.length > 0) {
+    attentionPoints.push(`長時間作業（90分以上）のタスクが ${longTasks.length} 件あります。適宜休憩を取りましょう。`);
+  }
 
   // Check for high priority overflow tasks
   if (overflows.length > 0) {
     const highPriorityOverflows = overflows.filter(t => t.priority >= 4);
     if (highPriorityOverflows.length > 0) {
-      attentionPoints.push(`優先度の高いタスクが ${highPriorityOverflows.length} 件、時間内に収まりませんでした。明日以降の予定を調整してください。`);
+      attentionPoints.push(`⚠️ 優先度の高いタスク（★4以上）が ${highPriorityOverflows.length} 件、時間内に収まりませんでした。明日以降の予定調整が必要です。`);
+    } else {
+      attentionPoints.push(`${overflows.length} 件のタスクが未割り当てです。明日以降のスケジュールを確認しましょう。`);
     }
+  }
+
+  // Check for morning/afternoon work balance
+  const morningBlocks = workBlocks.filter(b => {
+    const hour = new Date(b.start_at).getHours();
+    return hour < 12;
+  });
+  const afternoonBlocks = workBlocks.filter(b => {
+    const hour = new Date(b.start_at).getHours();
+    return hour >= 13;
+  });
+
+  const morningMinutes = morningBlocks.reduce((sum, b) => sum + durationMinutes(b.start_at, b.end_at), 0);
+  const afternoonMinutes = afternoonBlocks.reduce((sum, b) => sum + durationMinutes(b.start_at, b.end_at), 0);
+
+  if (morningMinutes > afternoonMinutes * 2) {
+    attentionPoints.push('午前中に作業が集中しています。午後の時間も有効活用しましょう。');
+  } else if (afternoonMinutes > morningMinutes * 2) {
+    attentionPoints.push('午後に作業が集中しています。午前の時間も活用できます。');
   }
 
   // Check for tasks with near deadlines
@@ -117,7 +140,7 @@ export const AISummary: React.FC<AISummaryProps> = ({ blocks, tasks }) => {
 
   // Default message if no attention points
   if (attentionPoints.length === 0) {
-    attentionPoints.push('特に注意すべき点はありません。計画通りに進めましょう。');
+    attentionPoints.push('✅ 特に注意すべき点はありません。計画通りに進めましょう。');
   }
 
   return (
@@ -133,10 +156,15 @@ export const AISummary: React.FC<AISummaryProps> = ({ blocks, tasks }) => {
 
       {/* Task Status */}
       <div className="mt-4">
-        <h4 className="text-sm font-semibold text-slate-700 mb-2">タスク状況</h4>
+        <h4 className="text-sm font-semibold text-slate-700 mb-2">📝 タスク状況</h4>
         <p className="text-sm text-slate-600 leading-relaxed">
-          本日は {workBlocks.length} 件のタスクを割り当てました。総作業時間は {Math.round(totalMinutes)} 分で、{endTime} 頃に完了予定です。
-          {overflows.length > 0 && ` ${overflows.length} 件のタスクが時間内に収まりませんでした。`}
+          {(() => {
+            const hours = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            const timeStr = hours > 0 ? `${hours}時間${mins > 0 ? mins + '分' : ''}` : `${mins}分`;
+
+            return `本日は ${workBlocks.length} 件のタスクを割り当てました。総作業時間は ${timeStr} で、${endTime} 頃に完了予定です。${overflows.length > 0 ? `なお、${overflows.length} 件のタスクが時間内に収まりませんでした。` : ''}`;
+          })()}
         </p>
       </div>
 

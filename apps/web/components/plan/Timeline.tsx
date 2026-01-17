@@ -107,50 +107,43 @@ export const Timeline: React.FC<TimelineProps> = ({ blocks, tasks, date }) => {
         <span className="text-base text-gray-500">{date}</span>
       </div>
 
-      {/* Timeline display with absolute positioning */}
-      <div className="relative" style={{ minHeight: `${totalMinutes * pixelsPerMinute}px` }}>
-        {activeBlocks.map((block) => {
-          const isBreak = block.kind === "break";
-          const startMinutes = timeToMinutes(block.start_at);
-          const endMinutes = timeToMinutes(block.end_at);
-          const blockDuration = endMinutes - startMinutes;
-          const topPosition = (startMinutes - minTime) * pixelsPerMinute;
-          const height = blockDuration * pixelsPerMinute;
+      {/* Timeline blocks - simple vertical layout */}
+      {activeBlocks.map((block) => {
+        const isBreak = block.kind === "break";
+        const duration = durationMinutes(block.start_at, block.end_at);
+        const height = Math.max(duration * pixelsPerMinute, 60); // Minimum 60px
 
-          return (
-            <div
-              key={block.block_id}
-              className={`absolute left-0 right-0 rounded-2xl border px-4 py-3 shadow-sm ${
-                isBreak
-                  ? "border-slate-200 bg-slate-50"
-                  : "border-slate-200 bg-white"
-              }`}
-              style={{
-                top: `${topPosition}px`,
-                height: `${height}px`,
-                minHeight: '60px'
-              }}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-slate-900">
-                  {block.task_title ?? "予定"}
-                </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                  {kindLabel(block.kind)}
-                </span>
+        return (
+          <div
+            key={block.block_id}
+            className={`rounded-2xl border px-4 py-3 shadow-sm ${
+              isBreak
+                ? "border-slate-200 bg-slate-50"
+                : "border-slate-200 bg-white"
+            }`}
+            style={{
+              minHeight: `${height}px`
+            }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-slate-900">
+                {block.task_title ?? "予定"}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                <span>
-                  {formatTime(block.start_at)} - {formatTime(block.end_at)}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {formatDuration(block.start_at, block.end_at)}
-                </span>
-              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                {kindLabel(block.kind)}
+              </span>
             </div>
-          );
-        })}
-      </div>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+              <span>
+                {formatTime(block.start_at)} - {formatTime(block.end_at)}
+              </span>
+              <span className="text-xs text-slate-500">
+                {formatDuration(block.start_at, block.end_at)}
+              </span>
+            </div>
+          </div>
+        );
+      })}
 
       {/* Buffer time display */}
       {bufferMinutes > 0 && (
