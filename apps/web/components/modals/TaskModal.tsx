@@ -48,8 +48,15 @@ export function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
     estimate_minutes: 60,
     splittable: true,
   });
+  const [estimateInput, setEstimateInput] = useState("60");
+  const [estimateError, setEstimateError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const normalizeDigits = (value: string) =>
+    value.replace(/[０-９]/g, (char) =>
+      String.fromCharCode(char.charCodeAt(0) - 0xfee0)
+    );
 
   useEffect(() => {
     if (task) {
@@ -65,6 +72,8 @@ export function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
         splittable: task.splittable,
         min_block_minutes: task.min_block_minutes,
       });
+      setEstimateInput(String(task.estimate_minutes));
+      setEstimateError(null);
       setShowDetails(true); // Show details when editing
     } else {
       setFormData({
@@ -75,6 +84,8 @@ export function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
         estimate_minutes: 60,
         splittable: true,
       });
+      setEstimateInput("60");
+      setEstimateError(null);
       setShowDetails(false);
     }
   }, [task, isOpen]);
@@ -85,6 +96,10 @@ export function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
     setIsSubmitting(true);
 
     try {
+      if (estimateError || !estimateInput) {
+        setError("想定時間を1分以上で入力してください");
+        return;
+      }
       const submitData: any = {
         title: formData.title,
         description: formData.description || undefined,
@@ -173,20 +188,36 @@ export function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
                 <label className="block text-sm font-medium mb-1">
                   想定時間 <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.estimate_minutes}
-                  onChange={(e) => setFormData({ ...formData, estimate_minutes: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value={15}>15分</option>
-                  <option value={30}>30分</option>
-                  <option value={45}>45分</option>
-                  <option value={60}>1時間</option>
-                  <option value={90}>1.5時間</option>
-                  <option value={120}>2時間</option>
-                  <option value={180}>3時間</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={estimateInput}
+                    onChange={(e) => {
+                      const normalized = normalizeDigits(e.target.value);
+                      const digitsOnly = normalized.replace(/[^0-9]/g, "");
+                      setEstimateInput(digitsOnly);
+                      if (!digitsOnly) {
+                        setEstimateError("1分以上で入力してください");
+                        return;
+                      }
+                      const parsed = parseInt(digitsOnly, 10);
+                      if (Number.isNaN(parsed) || parsed < 1) {
+                        setEstimateError("1分以上で入力してください");
+                        return;
+                      }
+                      setEstimateError(null);
+                      setFormData({ ...formData, estimate_minutes: parsed });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  <span className="text-sm text-gray-500">分</span>
+                </div>
+                {estimateError && (
+                  <p className="mt-1 text-xs text-red-600">{estimateError}</p>
+                )}
               </div>
             </div>
 

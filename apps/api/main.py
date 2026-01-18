@@ -413,6 +413,15 @@ def delete_plan(plan_id: str) -> dict:
 @app.post("/plans/generate")
 def generate_plan(request: PlanGenerateRequest) -> dict:
     working_slots, constraints = normalize_plan_request(request)
+    existing_plan_ids = [
+        plan_id
+        for plan_id, plan in STORE.plans.items()
+        if plan.date == request.date and plan.timezone == request.timezone
+    ]
+    for plan_id in existing_plan_ids:
+        STORE.plans.pop(plan_id, None)
+        STORE.plan_blocks.pop(plan_id, None)
+
     plan_id = str(uuid4())
 
     tzinfo = ZoneInfo(request.timezone)

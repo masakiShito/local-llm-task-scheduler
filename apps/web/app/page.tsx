@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { TaskList } from "@/components/tasks/TaskList";
 import { PlanPanel } from "@/components/plan/PlanPanel";
 import { AISummary } from "@/components/ai/AISummary";
-import { TaskModal } from "@/components/modals";
+import { TaskModal, EventModal } from "@/components/modals";
 import type { TaskFormData } from "@/components/modals";
 
 const apiBase =
@@ -43,6 +43,15 @@ type PlanBlock = {
   };
 };
 
+type FixedEvent = {
+  event_id: string;
+  title: string;
+  description?: string;
+  start_at: string;
+  end_at: string;
+  locked: boolean;
+};
+
 async function fetchJson<T>(
   path: string,
   options?: RequestInit
@@ -64,6 +73,7 @@ export default function Home() {
   // State
   const [tasks, setTasks] = useState<Task[]>([]);
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
+  const [events, setEvents] = useState<FixedEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // UI State
@@ -73,10 +83,17 @@ export default function Home() {
   const [currentDate] = useState(new Date().toISOString().slice(0, 10));
   const [planGenerated, setPlanGenerated] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [workingHours, setWorkingHours] = useState({
+    amStart: "09:00",
+    amEnd: "12:00",
+    pmStart: "13:00",
+    pmEnd: "18:00",
+  });
 
   // Modal state
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
 
   // Fetch data functions
   const refreshTasks = useCallback(async () => {
@@ -107,6 +124,17 @@ export default function Home() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load plan");
+    }
+  }, []);
+
+  const refreshEvents = useCallback(async (date: string) => {
+    try {
+      const eventsPayload = await fetchJson<{ data: FixedEvent[] }>(
+        `/events?date=${date}`
+      );
+      setEvents(eventsPayload.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load events");
     }
   }, []);
 
@@ -160,6 +188,23 @@ export default function Home() {
     }
   };
 
+  const handleAddEvent = () => {
+    setIsEventModalOpen(true);
+  };
+
+  const handleSaveEvent = async (eventData: {
+    title: string;
+    description?: string;
+    start_at: string;
+    end_at: string;
+  }) => {
+    await fetchJson("/events", {
+      method: "POST",
+      body: JSON.stringify(eventData),
+    });
+    await refreshEvents(currentDate);
+  };
+
   // Plan handlers
   const handleAddPlan = async () => {
     setIsGeneratingPlan(true);
@@ -170,8 +215,8 @@ export default function Home() {
           date: currentDate,
           timezone: "Asia/Tokyo",
           working_hours: [
-            { start: "09:00", end: "12:00" },
-            { start: "13:00", end: "18:00" },
+            { start: workingHours.amStart, end: workingHours.amEnd },
+            { start: workingHours.pmStart, end: workingHours.pmEnd },
           ],
           constraints: {
             break_minutes: 10,
@@ -193,13 +238,10 @@ export default function Home() {
   useEffect(() => {
     refreshTasks();
     loadPlanForDate(currentDate);
-  }, [refreshTasks, loadPlanForDate, currentDate]);
+    refreshEvents(currentDate);
+  }, [refreshTasks, loadPlanForDate, refreshEvents, currentDate]);
 
   // Format working hours for display
-  const formatWorkingHours = () => {
-    return "09:00 - 12:00 / 13:00 - 18:00";
-  };
-
   return (
     <DashboardLayout
       leftColumn={
@@ -216,10 +258,15 @@ export default function Home() {
       centerColumn={
         <PlanPanel
           date={currentDate}
-          workingHours={formatWorkingHours()}
+          workingHours={workingHours}
+          onWorkingHoursChange={(updates) =>
+            setWorkingHours((prev) => ({ ...prev, ...updates }))
+          }
           blocks={blocks}
           tasks={tasks}
+          events={events}
           onAddPlan={handleAddPlan}
+          onAddEvent={handleAddEvent}
           isGenerating={isGeneratingPlan}
         />
       }
@@ -232,6 +279,12 @@ export default function Home() {
         onClose={() => setIsTaskModalOpen(false)}
         onSave={handleSaveTask}
         task={editingTask}
+      />
+      <EventModal
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
+        onSave={handleSaveEvent}
+        defaultDate={currentDate}
       />
     </DashboardLayout>
   );

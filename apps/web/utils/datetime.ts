@@ -37,3 +37,25 @@ export function getCurrentDatetimeLocal(): string {
   const now = new Date();
   return isoToDatetimeLocal(now.toISOString());
 }
+
+/**
+ * Formats a YYYY-MM-DD date string into "yyyy年MM月dd日（曜日）" in Japan timezone.
+ */
+export function formatJapaneseDate(
+  dateString: string,
+  timeZone: string = "Asia/Tokyo"
+): string {
+  const date = new Date(`${dateString}T00:00:00+09:00`);
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+
+  const get = (type: "year" | "month" | "day" | "weekday") =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${get("year")}年${get("month")}月${get("day")}日（${get("weekday")}）`;
+}

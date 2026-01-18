@@ -1,4 +1,5 @@
 import React from 'react';
+import { mapPriorityToLabel } from '@/utils/priority';
 
 interface Task {
   task_id: string;
@@ -54,13 +55,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
-  // Priority labels
-  const getPriorityStars = (priority: number) => {
-    const stars = '★'.repeat(priority) + '☆'.repeat(5 - priority);
-    return stars;
-  };
-
   const dueDate = formatDateTime(task.due_at);
+  const priorityLabel = mapPriorityToLabel(task.priority);
 
   return (
     <div className={`flex items-start gap-3 py-3 group transition-opacity rounded-lg hover:bg-gray-50 px-2 ${
@@ -115,11 +111,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           {/* Regular task: priority badge */}
           {!task.is_fixed_time && (
             <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-              task.priority >= 4 ? 'bg-red-100 text-red-800' :
-              task.priority === 3 ? 'bg-blue-100 text-blue-800' :
-              'bg-gray-100 text-gray-700'
+              priorityLabel === '高' ? 'bg-orange-100 text-orange-800' :
+              priorityLabel === '中' ? 'bg-emerald-100 text-emerald-800' :
+              'bg-sky-100 text-sky-800'
             }`}>
-              {getPriorityStars(task.priority)}
+              優先度 {priorityLabel}
             </span>
           )}
 

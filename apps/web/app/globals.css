@@ -13,44 +13,127 @@
 }
 
 @layer components {
-  .fc {
+  .plan-calendar .fc {
     @apply text-sm text-slate-700;
   }
 
-  .fc .fc-timegrid-slot-label-cushion,
-  .fc .fc-timegrid-axis-cushion {
+  .plan-calendar .fc .fc-scrollgrid,
+  .plan-calendar .fc .fc-scrollgrid table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .plan-calendar .fc .fc-scrollgrid {
+    @apply overflow-hidden rounded-xl border border-slate-200/60;
+  }
+
+  .plan-calendar .fc .fc-view-harness,
+  .plan-calendar .fc .fc-timegrid {
+    position: relative;
+  }
+
+  .plan-calendar .fc .fc-timegrid-axis,
+  .plan-calendar .fc .fc-timegrid-slot-label {
+    @apply bg-white;
+  }
+
+  .plan-calendar .fc .fc-timegrid-slot-label-cushion,
+  .plan-calendar .fc .fc-timegrid-axis-cushion {
     @apply px-2 py-1 text-xs text-slate-500;
   }
 
-  .fc .fc-timegrid-now-indicator-line {
+  .plan-calendar .fc .fc-timegrid-body {
+    @apply bg-white;
+  }
+
+  .plan-calendar .fc .fc-timegrid-slot {
+    @apply border-slate-200/50;
+    height: 0.32rem;
+  }
+
+  .plan-calendar .fc .fc-timegrid-slot-minor {
+    @apply border-slate-200/30;
+  }
+
+  .plan-calendar .fc .fc-timegrid-event-harness {
+    z-index: 2;
+  }
+
+  .plan-calendar .fc .fc-timegrid-divider {
+    @apply border-slate-200/60;
+  }
+
+  .plan-calendar .fc .fc-timegrid-col,
+  .plan-calendar .fc .fc-timegrid-col-frame {
+    position: relative;
+  }
+
+  .plan-calendar .fc .fc-timegrid-event-harness {
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+
+  .plan-calendar .fc .fc-timegrid-now-indicator-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top-width: 2px;
+  }
+
+  .plan-calendar .fc .fc-timegrid-now-indicator-arrow {
+    position: absolute;
+  }
+
+  .plan-calendar .fc .fc-timegrid-now-indicator-line {
     @apply border-red-500;
   }
 
-  .fc .fc-timegrid-now-indicator-arrow {
+  .plan-calendar .fc .fc-timegrid-now-indicator-arrow {
     @apply border-red-500;
   }
 
-  .fc .fc-event {
-    @apply rounded-lg border;
+  .plan-calendar .fc .fc-event {
+    @apply rounded-lg border border-transparent shadow-sm;
   }
 
-  .fc .fc-plan-event {
-    @apply shadow-sm;
+  .plan-calendar .fc .fc-event .fc-event-main {
+    @apply text-[11px] leading-tight;
   }
 
-  .fc .fc-plan-work {
-    @apply bg-blue-600 border-blue-600 text-white;
+  .plan-calendar .fc .fc-event.priority-high {
+    @apply bg-orange-600 text-white;
   }
 
-  .fc .fc-plan-break {
-    @apply bg-amber-100 border-amber-200 text-amber-900;
+  .plan-calendar .fc .fc-event.priority-medium {
+    @apply bg-emerald-600 text-white;
   }
 
-  .fc .fc-plan-buffer {
-    @apply bg-slate-100 border-slate-200 text-slate-600;
+  .plan-calendar .fc .fc-event.priority-low {
+    @apply bg-sky-600 text-white;
   }
 
-  .fc .fc-working-hours {
-    @apply bg-emerald-50 opacity-60;
+  .plan-calendar .fc .fc-event.plan-break {
+    @apply bg-slate-100 text-slate-700 border border-slate-300;
+    border-style: dashed;
+    z-index: 3;
+  }
+
+  .plan-calendar .fc .fc-event.plan-buffer {
+    @apply bg-slate-50 text-slate-500 border border-slate-200;
+    opacity: 0.8;
+  }
+
+  .plan-calendar .fc .fc-event.plan-fixed {
+    @apply bg-teal-100 text-teal-800 border border-teal-200;
+  }
+
+  .plan-calendar .fc .fc-working-hours {
+    @apply bg-emerald-50;
+  }
+
+  .plan-calendar .plan-now-label {
+    @apply rounded-full border border-red-200 bg-white px-2 py-0.5 shadow-sm;
+    transform: translateY(-50%);
   }
 }
