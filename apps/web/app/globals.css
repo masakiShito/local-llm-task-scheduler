@@ -11,3 +11,46 @@
     @apply bg-slate-50 font-sans text-slate-900;
   }
 }
+
+@layer components {
+  .fc {
+    @apply text-sm text-slate-700;
+  }
+
+  .fc .fc-timegrid-slot-label-cushion,
+  .fc .fc-timegrid-axis-cushion {
+    @apply px-2 py-1 text-xs text-slate-500;
+  }
+
+  .fc .fc-timegrid-now-indicator-line {
+    @apply border-red-500;
+  }
+
+  .fc .fc-timegrid-now-indicator-arrow {
+    @apply border-red-500;
+  }
+
+  .fc .fc-event {
+    @apply rounded-lg border;
+  }
+
+  .fc .fc-plan-event {
+    @apply shadow-sm;
+  }
+
+  .fc .fc-plan-work {
+    @apply bg-blue-600 border-blue-600 text-white;
+  }
+
+  .fc .fc-plan-break {
+    @apply bg-amber-100 border-amber-200 text-amber-900;
+  }
+
+  .fc .fc-plan-buffer {
+    @apply bg-slate-100 border-slate-200 text-slate-600;
+  }
+
+  .fc .fc-working-hours {
+    @apply bg-emerald-50 opacity-60;
+  }
+}

@@ -1,4 +1,7 @@
-import React from 'react';
+import React from "react";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import jaLocale from "@fullcalendar/core/locales/ja";
 
 interface PlanBlock {
   block_id: string;
@@ -21,143 +24,113 @@ interface TimelineProps {
   date: string;
 }
 
-// Helper function to convert time string to minutes from midnight
-const timeToMinutes = (dateString: string): number => {
-  const date = new Date(dateString);
-  return date.getHours() * 60 + date.getMinutes();
-};
-
-// Helper function to calculate duration in minutes
-const durationMinutes = (startAt: string, endAt: string): number => {
-  return timeToMinutes(endAt) - timeToMinutes(startAt);
-};
-
-// Helper function to format time
-const formatTime = (dateString: string): string => {
-  const date = new Date(dateString);
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
-
-// Helper function to format duration
-const formatDuration = (startAt: string, endAt: string): string => {
-  const minutes = durationMinutes(startAt, endAt);
-  if (minutes < 60) {
-    return `${minutes}分`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (remainingMinutes === 0) {
-    return `${hours}時間`;
-  }
-  return `${hours}時間${remainingMinutes}分`;
-};
-
 // Helper function to get kind label
 const kindLabel = (kind: string): string => {
   switch (kind) {
-    case 'work':
-      return '作業';
-    case 'break':
-      return '休憩';
-    case 'buffer':
-      return '余り時間';
+    case "work":
+      return "作業";
+    case "break":
+      return "休憩";
+    case "buffer":
+      return "余り時間";
     default:
-      return '予定';
+      return "予定";
   }
 };
 
 export const Timeline: React.FC<TimelineProps> = ({ blocks, tasks, date }) => {
-  if (blocks.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-        まだ計画がありません。右上の「計画を追加」でタイムラインが表示されます。
-      </div>
-    );
-  }
+  const workingRanges = [
+    { start: "09:00", end: "12:00" },
+    { start: "13:00", end: "18:00" },
+  ];
+  const timezoneOffset = "+09:00";
 
-  // Separate buffer blocks from active blocks
-  const bufferBlocks = blocks.filter((block) => block.kind === "buffer");
-  const activeBlocks = blocks.filter((block) => block.kind !== "buffer");
-  const bufferMinutes = bufferBlocks.reduce((total, block) => {
-    const minutes = durationMinutes(block.start_at, block.end_at);
-    return total + minutes;
-  }, 0);
+  const workingBackgroundEvents = workingRanges.map((range, index) => ({
+    id: `working-${index}`,
+    start: `${date}T${range.start}:00${timezoneOffset}`,
+    end: `${date}T${range.end}:00${timezoneOffset}`,
+    display: "background" as const,
+    classNames: ["fc-working-hours"],
+  }));
 
-  // Calculate timeline range
-  const allTimes = blocks.map(b => [timeToMinutes(b.start_at), timeToMinutes(b.end_at)]).flat();
-  const minTime = Math.min(...allTimes);
-  const maxTime = Math.max(...allTimes);
-  const totalMinutes = maxTime - minTime;
+  const planEvents = blocks.map((block) => ({
+    id: block.block_id,
+    title: block.task_title ?? "予定",
+    start: block.start_at,
+    end: block.end_at,
+    classNames: ["fc-plan-event", `fc-plan-${block.kind}`],
+    extendedProps: {
+      kind: block.kind,
+    },
+  }));
 
-  // Pixels per minute (adjustable for zoom)
-  const pixelsPerMinute = 2;
-
-  // Get overflow tasks (tasks that couldn't fit in the schedule)
-  const scheduledTaskIds = new Set(blocks.map(b => b.task_id).filter(id => id !== null));
-  const overflows = tasks.filter(t => t.status !== 'done' && !scheduledTaskIds.has(t.task_id));
+  const scheduledTaskIds = new Set(
+    blocks.map((block) => block.task_id).filter((id): id is string => id !== null)
+  );
+  const overflows = tasks.filter(
+    (task) => task.status !== "done" && !scheduledTaskIds.has(task.task_id)
+  );
 
   return (
     <div className="space-y-3">
-      {/* Timeline header */}
-      <div className="flex items-center gap-2 mb-4">
-        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h3 className="text-lg font-bold text-gray-900">タイムライン</h3>
-        <span className="text-base text-gray-500">{date}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <svg
+            className="w-6 h-6 text-green-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <h3 className="text-lg font-bold text-gray-900">日別スケジュール</h3>
+          <span className="text-base text-gray-500">{date}</span>
+        </div>
+        <span className="text-xs font-semibold text-slate-500">GMT+09</span>
       </div>
 
-      {/* Timeline blocks - simple vertical layout */}
-      {activeBlocks.map((block) => {
-        const isBreak = block.kind === "break";
-        const duration = durationMinutes(block.start_at, block.end_at);
-        const height = Math.max(duration * pixelsPerMinute, 60); // Minimum 60px
-
-        return (
-          <div
-            key={block.block_id}
-            className={`rounded-2xl border px-4 py-3 shadow-sm ${
-              isBreak
-                ? "border-slate-200 bg-slate-50"
-                : "border-slate-200 bg-white"
-            }`}
-            style={{
-              minHeight: `${height}px`
-            }}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-semibold text-slate-900">
-                {block.task_title ?? "予定"}
+      <div className="rounded-2xl border border-slate-200 bg-white p-2">
+        <FullCalendar
+          plugins={[timeGridPlugin]}
+          initialView="timeGridDay"
+          initialDate={date}
+          timeZone="Asia/Tokyo"
+          locale="ja"
+          locales={[jaLocale]}
+          nowIndicator={true}
+          allDaySlot={false}
+          slotMinTime="08:00:00"
+          slotMaxTime="19:00:00"
+          slotDuration="00:30:00"
+          slotLabelInterval="01:00"
+          slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+          headerToolbar={false}
+          height="auto"
+          expandRows={true}
+          events={[...workingBackgroundEvents, ...planEvents]}
+          eventContent={(eventInfo) => {
+            const kind = eventInfo.event.extendedProps.kind as string | undefined;
+            if (!kind) {
+              return null;
+            }
+            return (
+              <div className="flex h-full flex-col justify-center gap-1 px-2 py-1">
+                <div className="text-xs font-semibold leading-tight">
+                  {eventInfo.event.title}
+                </div>
+                <div className="text-[10px] font-medium opacity-80">
+                  {kindLabel(kind)}
+                </div>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                {kindLabel(block.kind)}
-              </span>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <span>
-                {formatTime(block.start_at)} - {formatTime(block.end_at)}
-              </span>
-              <span className="text-xs text-slate-500">
-                {formatDuration(block.start_at, block.end_at)}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Buffer time display */}
-      {bufferMinutes > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-sm font-semibold text-slate-800">
-              余り時間 / 調整時間
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {bufferMinutes}分
-            </span>
-          </div>
-        </div>
-      )}
+            );
+          }}
+        />
+      </div>
 
       {/* Overflow tasks warning */}
       {overflows.length > 0 && (
