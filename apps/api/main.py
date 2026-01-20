@@ -490,15 +490,18 @@ def generate_plan(request: PlanGenerateRequest) -> dict:
 
     stored_blocks: list[PlanBlock] = []
     for block in schedule_result.blocks:
+        block_id = str(uuid4())
         stored_blocks.append(
             PlanBlock(
-                block_id=str(uuid4()),
+                id=block_id,
+                block_id=block_id,
                 plan_id=plan_id,
                 start_at=block.start_at,
                 end_at=block.end_at,
                 kind=block.kind,
                 task_id=block.task_id,
                 task_title=block.task_title,
+                locked=block.locked,
                 meta=block.meta or {},
             )
         )

@@ -17,19 +17,8 @@
     @apply text-sm text-slate-700;
   }
 
-  .plan-calendar .fc .fc-scrollgrid,
-  .plan-calendar .fc .fc-scrollgrid table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
   .plan-calendar .fc .fc-scrollgrid {
     @apply overflow-hidden rounded-xl border border-slate-200/60;
-  }
-
-  .plan-calendar .fc .fc-view-harness,
-  .plan-calendar .fc .fc-timegrid {
-    position: relative;
   }
 
   .plan-calendar .fc .fc-timegrid-axis,
@@ -46,53 +35,32 @@
     @apply bg-white;
   }
 
+  /* ✅ slot高さを固定しない（ここが重要） */
   .plan-calendar .fc .fc-timegrid-slot {
     @apply border-slate-200/50;
-    height: 0.32rem;
   }
 
   .plan-calendar .fc .fc-timegrid-slot-minor {
     @apply border-slate-200/30;
   }
 
-  .plan-calendar .fc .fc-timegrid-event-harness {
-    z-index: 2;
-  }
-
   .plan-calendar .fc .fc-timegrid-divider {
     @apply border-slate-200/60;
   }
 
-  .plan-calendar .fc .fc-timegrid-col,
-  .plan-calendar .fc .fc-timegrid-col-frame {
-    position: relative;
-  }
-
-  .plan-calendar .fc .fc-timegrid-event-harness {
-    position: absolute;
-    left: 0;
-    right: 0;
-  }
-
+  /* Now indicator */
   .plan-calendar .fc .fc-timegrid-now-indicator-line {
-    position: absolute;
-    left: 0;
-    right: 0;
+    @apply border-red-500;
     border-top-width: 2px;
-  }
-
-  .plan-calendar .fc .fc-timegrid-now-indicator-arrow {
-    position: absolute;
-  }
-
-  .plan-calendar .fc .fc-timegrid-now-indicator-line {
-    @apply border-red-500;
+    z-index: 10;
   }
 
   .plan-calendar .fc .fc-timegrid-now-indicator-arrow {
     @apply border-red-500;
+    z-index: 10;
   }
 
+  /* Event base styling */
   .plan-calendar .fc .fc-event {
     @apply rounded-lg border border-transparent shadow-sm;
   }
@@ -101,6 +69,11 @@
     @apply text-[11px] leading-tight;
   }
 
+  .plan-calendar .fc .fc-event .fc-event-main-frame {
+    padding: 2px 6px;
+  }
+
+  /* Priority colors */
   .plan-calendar .fc .fc-event.priority-high {
     @apply bg-orange-600 text-white;
   }
@@ -113,25 +86,27 @@
     @apply bg-sky-600 text-white;
   }
 
+  /* Break / Buffer / Fixed */
   .plan-calendar .fc .fc-event.plan-break {
     @apply bg-slate-100 text-slate-700 border border-slate-300;
     border-style: dashed;
-    z-index: 3;
   }
 
   .plan-calendar .fc .fc-event.plan-buffer {
     @apply bg-slate-50 text-slate-500 border border-slate-200;
-    opacity: 0.8;
+    opacity: 0.85;
   }
 
   .plan-calendar .fc .fc-event.plan-fixed {
     @apply bg-teal-100 text-teal-800 border border-teal-200;
   }
 
+  /* Working hours background */
   .plan-calendar .fc .fc-working-hours {
     @apply bg-emerald-50;
   }
 
+  /* Now label */
   .plan-calendar .plan-now-label {
     @apply rounded-full border border-red-200 bg-white px-2 py-0.5 shadow-sm;
     transform: translateY(-50%);

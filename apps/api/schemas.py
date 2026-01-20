@@ -131,6 +131,7 @@ class PlanListItem(BaseModel):
 class PlanBlock(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: str | None = None
     block_id: str
     plan_id: str
     start_at: datetime
@@ -138,6 +139,7 @@ class PlanBlock(BaseModel):
     kind: Literal["work", "break", "buffer"]
     task_id: str | None = None
     task_title: str | None = None
+    locked: bool = False
     meta: dict | None = None
 
 

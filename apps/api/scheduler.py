@@ -72,34 +72,42 @@ def _apply_buffer(
         start, end = remaining_slots[-1]
         slot_minutes = int((end - start).total_seconds() / 60)
         if slot_minutes <= buffer_remaining:
-            buffer_blocks.append(
-                PlanBlock(
-                    block_id="",
-                    plan_id="",
-                    start_at=start,
-                    end_at=end,
-                    kind="buffer",
-                    task_id=None,
-                    task_title=None,
-                    meta={},
-                )
-            )
+                    buffer_blocks.append(
+                        PlanBlock(
+                            block_id="",
+                            plan_id="",
+                            start_at=start,
+                            end_at=end,
+                            kind="buffer",
+                            task_id=None,
+                            task_title=None,
+                            locked=False,
+                            meta={
+                                "reason": "buffer",
+                                "duration": slot_minutes,
+                            },
+                        )
+                    )
             buffer_remaining -= slot_minutes
             remaining_slots.pop()
         else:
             buffer_start = end - timedelta(minutes=buffer_remaining)
-            buffer_blocks.append(
-                PlanBlock(
-                    block_id="",
-                    plan_id="",
-                    start_at=buffer_start,
-                    end_at=end,
-                    kind="buffer",
-                    task_id=None,
-                    task_title=None,
-                    meta={},
+                buffer_blocks.append(
+                    PlanBlock(
+                        block_id="",
+                        plan_id="",
+                        start_at=buffer_start,
+                        end_at=end,
+                        kind="buffer",
+                        task_id=None,
+                        task_title=None,
+                        locked=False,
+                        meta={
+                            "reason": "buffer",
+                            "duration": buffer_remaining,
+                        },
+                    )
                 )
-            )
             remaining_slots[-1] = (start, buffer_start)
             buffer_remaining = 0
 
@@ -116,6 +124,9 @@ def _create_fixed_task_blocks(
     blocks: list[PlanBlock] = []
     for task in fixed_tasks:
         if task.is_fixed_time and task.fixed_start_at and task.fixed_end_at:
+            duration_minutes = int(
+                (task.fixed_end_at - task.fixed_start_at).total_seconds() / 60
+            )
             blocks.append(
                 PlanBlock(
                     block_id="",
@@ -125,7 +136,8 @@ def _create_fixed_task_blocks(
                     kind="work",
                     task_id=task.task_id,
                     task_title=task.title,
-                    meta={"is_fixed_time": True},
+                    locked=True,
+                    meta={"reason": "fixed_task", "duration": duration_minutes},
                 )
             )
     return blocks
@@ -201,73 +213,129 @@ def schedule(
     )
 
     slots = working_slots[:]
-    for task in tasks_sorted:
-        remaining = task.estimate_minutes
-        min_block = task.min_block_minutes or 30
-        allocated = False
-        slot_index = 0
-        while remaining > 0 and slot_index < len(slots):
+    break_minutes = (
+        max(5, min(10, constraints.break_minutes))
+        if constraints.break_minutes > 0
+        else 0
+    )
+
+    def _insert_break(slot_index: int, reason: str) -> int:
+        if break_minutes <= 0:
+            return slot_index
+        while slot_index < len(slots):
             slot_start, slot_end = slots[slot_index]
             slot_minutes = int((slot_end - slot_start).total_seconds() / 60)
             if slot_minutes <= 0:
                 slot_index += 1
                 continue
-            if not task.splittable and remaining > slot_minutes:
+            if slot_minutes < break_minutes:
                 slot_index += 1
                 continue
-            chunk = min(remaining, slot_minutes, constraints.focus_max_minutes)
-            if task.splittable and chunk < min_block and remaining > min_block:
-                slot_index += 1
-                continue
-            work_start = slot_start
-            work_end = slot_start + timedelta(minutes=chunk)
+            break_end = slot_start + timedelta(minutes=break_minutes)
             blocks.append(
                 PlanBlock(
                     block_id="",
                     plan_id=plan_id,
-                    start_at=work_start,
-                    end_at=work_end,
-                    kind="work",
-                    task_id=task.task_id,
-                    task_title=task.title,
-                    meta={},
+                    start_at=slot_start,
+                    end_at=break_end,
+                    kind="break",
+                    task_id=None,
+                    task_title=None,
+                    locked=False,
+                    meta={"reason": reason, "duration": break_minutes},
                 )
             )
-            remaining -= chunk
-            allocated = True
-
-            slot_start = work_end
-            if remaining > 0:
-                if constraints.break_minutes > 0:
-                    break_end = slot_start + timedelta(minutes=constraints.break_minutes)
-                    if break_end <= slot_end:
-                        blocks.append(
-                            PlanBlock(
-                                block_id="",
-                                plan_id=plan_id,
-                                start_at=slot_start,
-                                end_at=break_end,
-                                kind="break",
-                                task_id=None,
-                                task_title=None,
-                                meta={},
-                            )
-                        )
-                        slot_start = break_end
-                    else:
-                        warnings.append(
-                            WarningItem(
-                                message_id="W-0210",
-                                message="休憩を確保できませんでした",
-                            )
-                        )
+            slot_start = break_end
             if slot_start >= slot_end:
                 slots.pop(slot_index)
             else:
                 slots[slot_index] = (slot_start, slot_end)
-            if remaining == 0:
+            return slot_index
+        warnings.append(
+            WarningItem(
+                message_id="W-0210",
+                message="休憩を確保できませんでした",
+            )
+        )
+        return slot_index
+
+    for task_index, task in enumerate(tasks_sorted):
+        remaining = task.estimate_minutes
+        min_block = task.min_block_minutes or 30
+        allocated = False
+        slot_index = 0
+        is_long_task = task.estimate_minutes > constraints.focus_max_minutes
+        if is_long_task:
+            first_chunk = min(60, max(45, task.estimate_minutes - 45))
+            segments = [first_chunk, task.estimate_minutes - first_chunk]
+        else:
+            segments = [task.estimate_minutes]
+
+        for segment_index, segment_minutes in enumerate(segments):
+            remaining_segment = segment_minutes
+            while remaining_segment > 0 and slot_index < len(slots):
+                slot_start, slot_end = slots[slot_index]
+                slot_minutes = int((slot_end - slot_start).total_seconds() / 60)
+                if slot_minutes <= 0:
+                    slot_index += 1
+                    continue
+                if remaining_segment > slot_minutes:
+                    if is_long_task or not task.splittable:
+                        slot_index += 1
+                        continue
+                chunk = min(remaining_segment, slot_minutes)
+                if task.splittable and not is_long_task:
+                    if chunk < min_block and remaining_segment > min_block:
+                        slot_index += 1
+                        continue
+                work_start = slot_start
+                work_end = slot_start + timedelta(minutes=chunk)
+                blocks.append(
+                    PlanBlock(
+                        block_id="",
+                        plan_id=plan_id,
+                        start_at=work_start,
+                        end_at=work_end,
+                        kind="work",
+                        task_id=task.task_id,
+                        task_title=task.title,
+                        locked=False,
+                        meta={"reason": "work", "duration": chunk},
+                    )
+                )
+                remaining_segment -= chunk
+                remaining -= chunk
+                allocated = True
+
+                slot_start = work_end
+                if slot_start >= slot_end:
+                    slots.pop(slot_index)
+                else:
+                    slots[slot_index] = (slot_start, slot_end)
+
+            if remaining_segment > 0:
                 break
-        if not allocated or remaining > 0:
+
+            if is_long_task and segment_index == 0:
+                slot_index = _insert_break(slot_index, "mid_task_break")
+
+        if remaining > 0:
+            overflow.append(
+                OverflowItem(
+                    task_id=task.task_id,
+                    task_title=task.title,
+                    estimate_minutes=task.estimate_minutes,
+                    priority=task.priority,
+                    due_at=task.due_at,
+                    reason="not_enough_free_time",
+                )
+            )
+            continue
+
+        if not is_long_task and task_index < len(tasks_sorted) - 1:
+            slot_index = _insert_break(slot_index, "post_task_break")
+
+        if not allocated:
             overflow.append(
                 OverflowItem(
                     task_id=task.task_id,

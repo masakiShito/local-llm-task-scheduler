@@ -34,11 +34,12 @@ interface TimelineProps {
   blocks: PlanBlock[];
   tasks: Task[];
   events: FixedEvent[];
-  date: string;
-  workingRanges: { start: string; end: string }[];
+  date: string; // YYYY-MM-DD
+  workingRanges: { start: string; end: string }[]; // HH:mm
 }
 
-// Helper function to get kind label
+const SLOT_MINUTES = 15; // ✅ 運用しやすい単位（10に変えるだけで10分運用も可能）
+
 const kindLabel = (kind: string): string => {
   switch (kind) {
     case "work":
@@ -65,21 +66,14 @@ const formatTime = (dateString: string): string => {
 const formatDuration = (startAt: string, endAt: string): string => {
   const diffMs = new Date(endAt).getTime() - new Date(startAt).getTime();
   const totalMinutes = Math.max(0, Math.round(diffMs / 60000));
-  if (totalMinutes < 60) {
-    return `${totalMinutes}分`;
-  }
+  if (totalMinutes < 60) return `${totalMinutes}分`;
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  if (minutes === 0) {
-    return `${hours}時間`;
-  }
+  if (minutes === 0) return `${hours}時間`;
   return `${hours}時間${minutes}分`;
 };
 
-const formatDurationFromDates = (
-  start?: Date | null,
-  end?: Date | null
-): string => {
+const formatDurationFromDates = (start?: Date | null, end?: Date | null) => {
   if (!start || !end) return "";
   const totalMinutes = Math.max(
     0,
@@ -111,6 +105,13 @@ const priorityBadgeClass = (label: string): string => {
   }
 };
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const toHhMmSs = (minutes: number) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${pad2(h)}:${pad2(m)}:00`;
+};
+
 export const Timeline: React.FC<TimelineProps> = ({
   blocks,
   tasks,
@@ -121,10 +122,9 @@ export const Timeline: React.FC<TimelineProps> = ({
   const [localBlocks, setLocalBlocks] = useState<PlanBlock[]>(blocks);
   const nowLabelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    setLocalBlocks(blocks);
-  }, [blocks]);
+  useEffect(() => setLocalBlocks(blocks), [blocks]);
 
+  // now label (hh:mm:ss)
   useEffect(() => {
     const formatter = new Intl.DateTimeFormat("ja-JP", {
       timeZone: "Asia/Tokyo",
@@ -137,6 +137,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     const updateNowLabel = () => {
       const label = nowLabelRef.current;
       if (!label) return;
+
       label.textContent = formatter.format(new Date());
 
       const line = document.querySelector<HTMLElement>(
@@ -174,24 +175,29 @@ export const Timeline: React.FC<TimelineProps> = ({
     classNames: ["fc-working-hours"],
   }));
 
-  const taskById = useMemo(() => {
-    return new Map(tasks.map((task) => [task.task_id, task]));
-  }, [tasks]);
+  const taskById = useMemo(
+    () => new Map(tasks.map((t) => [t.task_id, t])),
+    [tasks]
+  );
 
   const planEvents = localBlocks.map((block) => {
     const task = block.task_id ? taskById.get(block.task_id) : undefined;
+
     const isWork = block.kind === "work";
     const isBreak = block.kind === "break";
     const isBuffer = block.kind === "buffer";
+
     const priorityLabel =
       isWork && task ? mapPriorityToLabel(task.priority) : undefined;
     const priorityClass =
       isWork && priorityLabel ? mapPriorityToClass(priorityLabel) : "";
+
     const kindClass = isBreak
       ? "plan-break"
       : isBuffer
       ? "plan-buffer"
       : "plan-work";
+
     return {
       id: block.block_id,
       title: isBreak
@@ -207,7 +213,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         priorityLabel,
         eventType: "plan",
       },
-      editable: isWork,
+      editable: isWork, // drag/resize only for work blocks
       startEditable: isWork,
       durationEditable: isWork,
     };
@@ -220,19 +226,29 @@ export const Timeline: React.FC<TimelineProps> = ({
     end: event.end_at,
     classNames: ["fc-fixed-event", "plan-fixed"],
     extendedProps: {
+      kind: "fixed",
       eventType: "fixed",
     },
     editable: false,
   }));
 
   const scheduledTaskIds = new Set(
-    localBlocks
-      .map((block) => block.task_id)
-      .filter((id): id is string => id !== null)
+    localBlocks.map((b) => b.task_id).filter((id): id is string => id !== null)
   );
   const overflows = tasks.filter(
-    (task) => task.status !== "done" && !scheduledTaskIds.has(task.task_id)
+    (t) => t.status !== "done" && !scheduledTaskIds.has(t.task_id)
   );
+
+  const handleMoveOrResize = (id: string, startStr: string, endStr: string) => {
+    setLocalBlocks((prev) =>
+      prev.map((b) =>
+        b.block_id === id ? { ...b, start_at: startStr, end_at: endStr } : b
+      )
+    );
+  };
+
+  const slotDuration = toHhMmSs(SLOT_MINUTES);
+  const snapDuration = slotDuration; // ✅ ドラッグ/リサイズの吸着も同単位に
 
   return (
     <div className="space-y-3">
@@ -243,6 +259,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -265,6 +282,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           className="plan-now-label pointer-events-none absolute right-3 z-20 text-[11px] font-semibold text-red-600"
           aria-hidden="true"
         />
+
         <FullCalendar
           plugins={[timeGridPlugin, interactionPlugin]}
           initialView="timeGridDay"
@@ -274,55 +292,46 @@ export const Timeline: React.FC<TimelineProps> = ({
           locales={[jaLocale]}
           nowIndicator={true}
           allDaySlot={false}
+          headerToolbar={false}
           editable={true}
           eventResizableFromStart={true}
           eventStartEditable={true}
           eventDurationEditable={true}
           slotMinTime="08:00:00"
           slotMaxTime="19:00:00"
+          slotDuration={slotDuration}
+          snapDuration={snapDuration}
+          slotLabelInterval="01:00"
           slotLabelFormat={{
             hour: "2-digit",
             minute: "2-digit",
             hour12: false,
           }}
-          headerToolbar={false}
-          height="auto"
-          expandRows={true}
-          slotDuration="00:05:00"
-          slotLabelInterval="01:00"
-          eventMinHeight={22}
-          eventShortHeight={22}
+          // ✅ ここは見た目安定のため固定（好みで "auto" にしてもOK）
+          height={420}
+          contentHeight={420}
+          expandRows={false}
+          eventMinHeight={18}
+          eventShortHeight={18}
           eventOverlap={false}
           slotEventOverlap={false}
           events={[...workingBackgroundEvents, ...fixedEvents, ...planEvents]}
           eventDrop={(changeInfo) => {
             if (!changeInfo.event.startStr || !changeInfo.event.endStr) return;
             if (changeInfo.event.extendedProps.eventType !== "plan") return;
-            setLocalBlocks((prev) =>
-              prev.map((block) =>
-                block.block_id === changeInfo.event.id
-                  ? {
-                      ...block,
-                      start_at: changeInfo.event.startStr,
-                      end_at: changeInfo.event.endStr,
-                    }
-                  : block
-              )
+            handleMoveOrResize(
+              changeInfo.event.id,
+              changeInfo.event.startStr,
+              changeInfo.event.endStr
             );
           }}
           eventResize={(resizeInfo) => {
             if (!resizeInfo.event.startStr || !resizeInfo.event.endStr) return;
             if (resizeInfo.event.extendedProps.eventType !== "plan") return;
-            setLocalBlocks((prev) =>
-              prev.map((block) =>
-                block.block_id === resizeInfo.event.id
-                  ? {
-                      ...block,
-                      start_at: resizeInfo.event.startStr,
-                      end_at: resizeInfo.event.endStr,
-                    }
-                  : block
-              )
+            handleMoveOrResize(
+              resizeInfo.event.id,
+              resizeInfo.event.startStr,
+              resizeInfo.event.endStr
             );
           }}
           eventContent={(eventInfo) => {
@@ -334,47 +343,57 @@ export const Timeline: React.FC<TimelineProps> = ({
             const eventType = eventInfo.event.extendedProps.eventType as
               | string
               | undefined;
-            if (!eventType) {
-              return null;
-            }
+            if (!eventType) return null;
+
+            const start = eventInfo.event.start;
+            const end = eventInfo.event.end;
+
             const timeRange = `${formatTimeFromDate(
-              eventInfo.event.start
-            )}-${formatTimeFromDate(eventInfo.event.end)}`;
-            const duration = formatDurationFromDates(
-              eventInfo.event.start,
-              eventInfo.event.end
-            );
+              start
+            )}-${formatTimeFromDate(end)}`;
+            const durationText = formatDurationFromDates(start, end);
+
             const totalMinutes = Math.max(
               0,
               Math.round(
-                ((eventInfo.event.end?.getTime() || 0) -
-                  (eventInfo.event.start?.getTime() || 0)) /
-                  60000
+                ((end?.getTime() || 0) - (start?.getTime() || 0)) / 60000
               )
             );
-            const showTag = eventType === "fixed";
-            const showDetails = !(kind === "break" || kind === "buffer");
-            const showMeta = totalMinutes >= 15 && showDetails;
+
+            const isBreak = kind === "break";
+            const isBuffer = kind === "buffer";
+            const isFixed = eventType === "fixed";
+
+            // Short events should show less text
+            const showMeta = totalMinutes >= 30 && !isBreak && !isBuffer; // ✅ 15分運用なので少しハードル上げる
+            const showKind = totalMinutes >= 15;
+
             return (
-              <div className="flex h-full flex-col gap-0.5 px-1.5 py-0.5 leading-tight">
-                <div className="text-[10px] font-semibold">
-                  {timeRange} ({duration})
+              <div className="h-full">
+                {/* Row1: time + duration */}
+                <div className="flex items-center justify-between gap-2 text-[10px] font-semibold opacity-90">
+                  <span className="truncate">{timeRange}</span>
+                  <span className="shrink-0">({durationText})</span>
                 </div>
-                <div className="text-[11px] font-semibold">
+
+                {/* Row2: title */}
+                <div className="mt-0.5 truncate text-[12px] font-bold">
                   {eventInfo.event.title}
                 </div>
-                {showMeta && (
-                  <div className="flex flex-wrap items-center gap-1 text-[9px] font-semibold">
-                    {priorityLabel && (
-                      <span className="rounded-full bg-white/20 px-1.5 py-0.5">
+
+                {/* Row3: meta */}
+                {(showMeta || showKind || isFixed) && (
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    {priorityLabel && showMeta && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5">
                         優先度 {priorityLabel}
                       </span>
                     )}
-                    {kind && (
+                    {kind && showKind && (
                       <span className="opacity-90">{kindLabel(kind)}</span>
                     )}
-                    {showTag && (
-                      <span className="rounded-full bg-white/50 px-1.5 py-0.5 text-[9px] font-semibold text-teal-700">
+                    {isFixed && (
+                      <span className="rounded-full bg-white/60 px-2 py-0.5 text-teal-700">
                         固定予定
                       </span>
                     )}
@@ -386,11 +405,11 @@ export const Timeline: React.FC<TimelineProps> = ({
         />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-        <div className="mb-3 text-sm font-semibold text-slate-800">
+      <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+        <div className="mb-2 text-sm font-semibold text-slate-800">
           スケジュール一覧
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {[...localBlocks]
             .sort(
               (a, b) =>
@@ -406,28 +425,32 @@ export const Timeline: React.FC<TimelineProps> = ({
               const startAt = formatTime(block.start_at);
               const endAt = formatTime(block.end_at);
               const duration = formatDuration(block.start_at, block.end_at);
+
               return (
                 <div
                   key={block.block_id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/60 px-2 py-1.5"
                 >
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
-                      {block.task_title ?? "予定"}
+                    <div className="text-xs font-semibold text-slate-900">
+                      {block.task_title ??
+                        (block.kind === "break" ? "休憩" : "予定")}
                     </div>
                     <div className="text-xs text-slate-500">
                       {kindLabel(block.kind)}
                     </div>
                   </div>
+
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-slate-800">
+                    <div className="text-xs font-semibold text-slate-800">
                       {startAt} - {endAt}
                     </div>
-                    <div className="text-xs text-slate-500">{duration}</div>
+                    <div className="text-[10px] text-slate-500">{duration}</div>
                   </div>
-                  {priorityLabel && (
+
+                  {priorityLabel && block.kind === "work" && (
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${priorityBadgeClass(
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityBadgeClass(
                         priorityLabel
                       )}`}
                     >
@@ -440,7 +463,6 @@ export const Timeline: React.FC<TimelineProps> = ({
         </div>
       </div>
 
-      {/* Overflow tasks warning */}
       {overflows.length > 0 && (
         <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3">
           <div className="flex items-start gap-2">
@@ -449,6 +471,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -464,9 +487,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               <ul className="text-xs text-orange-800 space-y-0.5">
                 {overflows.slice(0, 3).map((task) => (
                   <li key={task.task_id}>
-                    •{" "}
-                    {tasks.find((t) => t.task_id === task.task_id)?.title ??
-                      task.task_id}
+                    • {task.title}
                     <span className="text-orange-700">（空き時間不足）</span>
                   </li>
                 ))}
